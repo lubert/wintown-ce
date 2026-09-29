@@ -168,112 +168,187 @@ IDR_ICON_SEAPORT        RCDATA  MOVEABLE PURE   "assets\\seaport.bmp"
 // Dialog
 //
 
-IDD_BUDGET DIALOG DISCARDABLE  0, 0, 320, 250
+IDD_BUDGET DIALOG DISCARDABLE  0, 0, 310, 210
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "City Budget"
-FONT 8, "MS Sans Serif"
+FONT 8, "Tahoma"
 BEGIN
-    LTEXT           "WiNTown City Budget",IDC_STATIC,10,10,300,12
-    GROUPBOX        "Tax Rate",IDC_STATIC,10,30,300,40
-    LTEXT           "Tax Rate: 7%",IDC_TAX_RATE_LABEL,20,45,80,10
-    SCROLLBAR       IDC_TAX_RATE_SLIDER,110,42,180,12,WS_TABSTOP
-    LTEXT           "0%",IDC_STATIC,110,55,15,8
-    LTEXT           "20%",IDC_STATIC,275,55,15,8
-    GROUPBOX        "Department Funding",IDC_STATIC,10,80,300,100
-    LTEXT           "Road Funding: 100%",IDC_ROAD_LABEL,20,95,90,10
-    SCROLLBAR       IDC_ROAD_SLIDER,120,95,120,12,WS_TABSTOP
-    LTEXT           "$0",IDC_ROAD_PERCENT,250,95,40,10
-    LTEXT           "Fire Funding: 100%",IDC_FIRE_LABEL,20,115,90,10
-    SCROLLBAR       IDC_FIRE_SLIDER,120,115,120,12,WS_TABSTOP
-    LTEXT           "$0",IDC_FIRE_PERCENT,250,115,40,10
-    LTEXT           "Police Funding: 100%",IDC_POLICE_LABEL,20,135,90,10
-    SCROLLBAR       IDC_POLICE_SLIDER,120,135,120,12,WS_TABSTOP
-    LTEXT           "$0",IDC_POLICE_PERCENT,250,135,40,10
-    CHECKBOX        "Auto Budget",IDC_AUTO_BUDGET,20,155,80,15
-    GROUPBOX        "Financial Summary",IDC_STATIC,10,190,300,40
-    LTEXT           "Taxes Collected: $0",IDC_TAXES_COLLECTED,20,205,100,10
-    LTEXT           "Cash Flow: +$0",IDC_CASH_FLOW,130,205,80,10
-    LTEXT           "Previous Funds: $0",IDC_PREVIOUS_FUNDS,20,215,100,10
-    LTEXT           "Current Funds: $0",IDC_CURRENT_FUNDS,130,215,80,10
-    PUSHBUTTON      "Reset",IDC_RESET_BUDGET,220,205,40,15
-    DEFPUSHBUTTON   "OK",IDOK_BUDGET,265,205,40,15
-    PUSHBUTTON      "Cancel",IDCANCEL_BUDGET,265,225,40,15
+    LTEXT           "WiNTown City Budget",IDC_STATIC,8,6,290,10
+    GROUPBOX        "Tax Rate",IDC_STATIC,8,18,294,36
+    LTEXT           "Tax Rate: 7%",IDC_TAX_RATE_LABEL,16,30,70,10
+    SCROLLBAR       IDC_TAX_RATE_SLIDER,90,28,150,11,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    LTEXT           "0%",IDC_STATIC,90,40,15,8
+    LTEXT           "20%",IDC_STATIC,225,40,15,8
+    GROUPBOX        "Department Funding",IDC_STATIC,8,56,294,84
+    LTEXT           "Road Funding: 100%",IDC_ROAD_LABEL,16,70,80,10
+    SCROLLBAR       IDC_ROAD_SLIDER,100,68,120,11,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    LTEXT           "$0",IDC_ROAD_PERCENT,230,68,40,10
+    LTEXT           "Fire Funding: 100%",IDC_FIRE_LABEL,16,88,80,10
+    SCROLLBAR       IDC_FIRE_SLIDER,100,86,120,11,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    LTEXT           "$0",IDC_FIRE_PERCENT,230,86,40,10
+    LTEXT           "Police Funding: 100%",IDC_POLICE_LABEL,16,106,80,10
+    SCROLLBAR       IDC_POLICE_SLIDER,100,104,120,11,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    LTEXT           "$0",IDC_POLICE_PERCENT,230,104,40,10
+    CONTROL         "Auto Budget",IDC_AUTO_BUDGET,"Button",BS_AUTOCHECKBOX | WS_CHILD | WS_VISIBLE | WS_TABSTOP,16,122,80,12
+    GROUPBOX        "Financial Summary",IDC_STATIC,8,142,294,38
+    LTEXT           "Taxes Collected: $0",IDC_TAXES_COLLECTED,16,154,90,10
+    LTEXT           "Cash Flow: +$0",IDC_CASH_FLOW,110,154,75,10
+    LTEXT           "Previous Funds: $0",IDC_PREVIOUS_FUNDS,16,166,90,10
+    LTEXT           "Current Funds: $0",IDC_CURRENT_FUNDS,110,166,75,10
+    PUSHBUTTON      "Reset",IDC_RESET_BUDGET,190,154,32,13,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    DEFPUSHBUTTON   "OK",IDOK_BUDGET,228,154,32,13,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    PUSHBUTTON      "Cancel",IDCANCEL_BUDGET,264,154,32,13,WS_CHILD | WS_VISIBLE | WS_TABSTOP
 END
 
-IDD_NOTIFICATION_DIALOG DIALOG DISCARDABLE  0, 0, 400, 300
+IDR_MAINMENU MENU DISCARDABLE
+BEGIN
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&New...",                 1001
+        MENUITEM "&Open City...",           1002
+        MENUITEM "&Save City",              1003
+        MENUITEM "Save City &As...",        1004
+        MENUITEM SEPARATOR
+        MENUITEM "E&xit",                   1005
+    END
+    POPUP "&Scenarios"
+    BEGIN
+        MENUITEM "&Dullsville (1900): Boredom",         4001
+        MENUITEM "&San Francisco (1906): Earthquake",   4002
+        MENUITEM "&Hamburg (1944): Bombing",            4003
+        MENUITEM "&Bern (1965): Traffic",               4004
+        MENUITEM "&Tokyo (1957): Monster Attack",       4005
+        MENUITEM "&Detroit (1972): Crime",              4006
+        MENUITEM "&Boston (2010): Nuclear Meltdown",    4007
+        MENUITEM "&Rio de Janeiro (2047): Flooding",    4008
+    END
+    POPUP "&Tileset"
+    BEGIN
+        MENUITEM "Classic",                 2000
+    END
+    POPUP "S&pawn"
+    BEGIN
+        MENUITEM "&Helicopter",             6001
+        MENUITEM "&Airplane",               6002
+        MENUITEM "&Train",                  6003
+        MENUITEM "&Ship",                   6004
+        MENUITEM "&Bus",                    6005
+    END
+    POPUP "&Disasters"
+    BEGIN
+        MENUITEM "&Fire",                   9001
+        MENUITEM "Fl&ood",                  9002
+        MENUITEM "&Tornado",                9003
+        MENUITEM "&Earthquake",             9004
+        MENUITEM "&Monster",                9005
+        MENUITEM "Nuclear &Meltdown",       9006
+    END
+    POPUP "Se&ttings"
+    BEGIN
+        MENUITEM "Speed: &Pause\t0",        3001
+        MENUITEM "Speed: &Slow\t1",         3002
+        MENUITEM "Speed: &Medium\t2",       3003
+        MENUITEM "Speed: &Fast\t3",         3004
+        MENUITEM SEPARATOR
+        MENUITEM "Difficulty: &Easy",       8102
+        MENUITEM "Difficulty: &Medium",     8103
+        MENUITEM "Difficulty: &Hard",       8104
+        MENUITEM SEPARATOR
+        MENUITEM "Auto &Budget",            8105
+        MENUITEM "Auto B&ulldoze",          8106
+        MENUITEM "Auto &Goto",              8107
+        MENUITEM "Enable &Disasters",       7001
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Info Window",            4100
+        MENUITEM "&Message Log",            4101
+        MENUITEM "&Minimap Window",         4104
+        MENUITEM "&Budget Window",          8001
+        MENUITEM "&Evaluation Window",      8002
+        MENUITEM "&Charts Window",          4106
+        MENUITEM SEPARATOR
+        MENUITEM "&Power Overlay",          4102
+        MENUITEM "Tile &Viewer",            4105
+        MENUITEM SEPARATOR
+        MENUITEM "&About",                  4109
+    END
+END
+
+IDD_NOTIFICATION_DIALOG DIALOG DISCARDABLE  0, 0, 300, 185
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "City Notification"
-FONT 8, "MS Sans Serif"
+FONT 8, "Tahoma"
 BEGIN
-    LTEXT           "Notification Title",IDC_NOTIF_TITLE,10,10,380,20
-    LTEXT           "Main notification message",IDC_NOTIF_MESSAGE,10,35,380,
-                    40
-    LTEXT           "Detailed explanation",IDC_NOTIF_EXPLANATION,10,80,380,
-                    60
-    LTEXT           "Recommended actions",IDC_NOTIF_ADVICE,10,145,380,60
-    LTEXT           "Location info",IDC_NOTIF_LOCATION,10,210,200,15
-    PUSHBUTTON      "Go To Location",IDC_GOTO_LOCATION,10,240,80,20
-    PUSHBUTTON      "OK",IDOK,300,240,40,20
-    PUSHBUTTON      "Cancel",IDCANCEL,345,240,40,20
+    LTEXT           "Notification Title",IDC_NOTIF_TITLE,10,8,280,14
+    LTEXT           "Main notification message",IDC_NOTIF_MESSAGE,10,24,280,25
+    LTEXT           "Detailed explanation",IDC_NOTIF_EXPLANATION,10,52,280,45
+    LTEXT           "Recommended actions",IDC_NOTIF_ADVICE,10,100,280,45
+    LTEXT           "Location info",IDC_NOTIF_LOCATION,10,148,150,12
+    PUSHBUTTON      "Go To Location",IDC_GOTO_LOCATION,10,163,75,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    PUSHBUTTON      "OK",IDOK,195,163,45,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    PUSHBUTTON      "Cancel",IDCANCEL,245,163,45,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP
 END
 
-IDD_NEWGAME DIALOG DISCARDABLE  0, 0, 420, 260
-STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+IDD_NEWGAME DIALOG DISCARDABLE  0, 0, 320, 192
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPSIBLINGS
 CAPTION "New Game - WiNTown"
-FONT 8, "MS Sans Serif"
+FONT 8, "Tahoma"
 BEGIN
-    GROUPBOX        "Game Type",IDC_STATIC,10,10,298,39
     CONTROL         "&New City",IDC_NEW_CITY,"Button",BS_AUTORADIOBUTTON | 
-                    WS_GROUP | WS_TABSTOP,20,25,48,12
+                    WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | WS_CLIPSIBLINGS,14,14,50,12
     CONTROL         "Load City &Builtin",IDC_LOAD_CITY_BUILTIN,"Button",
-                    BS_AUTORADIOBUTTON,79,25,80,12
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,68,14,75,12
     CONTROL         "Load City &File",IDC_LOAD_CITY_FILE,"Button",
-                    BS_AUTORADIOBUTTON,149,26,70,12
-    CONTROL         "&Scenario",IDC_SCENARIO,"Button",BS_AUTORADIOBUTTON,217,
-                    26,60,12
-    GROUPBOX        "New City Options",IDC_STATIC,9,52,124,192
-    LTEXT           "City Name:",IDC_STATIC,15,65,40,12
-    EDITTEXT        IDC_CITY_NAME,18,76,84,14,ES_AUTOHSCROLL
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,150,14,65,12
+    CONTROL         "&Scenario",IDC_SCENARIO,"Button",
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,222,14,55,12
+    GROUPBOX        "Game Type",IDC_STATIC,6,4,308,28,WS_CLIPSIBLINGS
+
+    LTEXT           "City Name:",IDC_STATIC,12,45,40,9,WS_CLIPSIBLINGS
+    EDITTEXT        IDC_CITY_NAME,12,55,98,12,ES_AUTOHSCROLL | WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
     CONTROL         "&Easy ($20,000)",IDC_DIFFICULTY_EASY,"Button",
-                    BS_AUTORADIOBUTTON | WS_GROUP | WS_TABSTOP,18,94,65,12
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_GROUP | WS_TABSTOP | WS_CLIPSIBLINGS,12,70,70,10
     CONTROL         "&Medium ($10,000)",IDC_DIFFICULTY_MEDIUM,"Button",
-                    BS_AUTORADIOBUTTON,18,108,75,12
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,12,82,75,10
     CONTROL         "&Hard ($5,000)",IDC_DIFFICULTY_HARD,"Button",
-                    BS_AUTORADIOBUTTON,18,122,60,12
+                    BS_AUTORADIOBUTTON | WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,12,94,65,10
     CONTROL         "&Island",IDC_MAP_ISLAND,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,18,137,40,12
-    LTEXT           "Water: 25%",IDC_WATER_LABEL,21,171,40,12
-    SCROLLBAR       IDC_WATER_PERCENT,63,169,59,12,WS_TABSTOP
-    LTEXT           "Forest: 30%",IDC_FOREST_LABEL,21,190,40,12
-    SCROLLBAR       IDC_FOREST_PERCENT,64,188,59,12,WS_TABSTOP
-    PUSHBUTTON      "Generate",IDC_GENERATE_PREVIEW,20,219,80,15
-    CONTROL         "",IDC_MAP_PREVIEW,"Static",SS_BITMAP | SS_CENTERIMAGE,
-                    316,7,91,81
-    GROUPBOX        "Scenarios",IDC_STATIC,146,98,263,138
-    LISTBOX         IDC_SCENARIO_LIST,151,112,112,118,WS_VSCROLL | 
-                    WS_TABSTOP
-    LTEXT           "",IDC_SCENARIO_DESC,279,113,116,113
-    DEFPUSHBUTTON   "OK",IDC_OK,311,241,50,14
-    PUSHBUTTON      "Cancel",IDC_CANCEL,365,241,50,14
+                    WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS,12,106,45,10
+    LTEXT           "Water: 25%",IDC_WATER_LABEL,12,120,40,9,WS_CLIPSIBLINGS
+    SCROLLBAR       IDC_WATER_PERCENT,55,119,55,10,WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
+    LTEXT           "Forest: 30%",IDC_FOREST_LABEL,12,133,40,9,WS_CLIPSIBLINGS
+    SCROLLBAR       IDC_FOREST_PERCENT,55,132,55,10,WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
+    PUSHBUTTON      "Generate",IDC_GENERATE_PREVIEW,20,150,80,14,WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
+    GROUPBOX        "New City Options",IDC_STATIC,6,34,110,152,WS_CLIPSIBLINGS
+
+    LISTBOX         IDC_SCENARIO_LIST,124,46,104,70,WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP | WS_CLIPSIBLINGS
+    LTEXT           "",IDC_SCENARIO_DESC,124,120,104,60,WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS
+    GROUPBOX        "Scenarios & Cities",IDC_STATIC,120,34,112,152,WS_CLIPSIBLINGS
+
+    CONTROL         "",IDC_MAP_PREVIEW,"Static",SS_BITMAP | SS_CENTERIMAGE | 
+                    WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,236,38,78,78
+    DEFPUSHBUTTON   "OK",IDC_OK,246,134,58,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
+    PUSHBUTTON      "Cancel",IDC_CANCEL,246,156,58,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP | WS_CLIPSIBLINGS
 END
 
-IDD_SCENARIO_SELECT DIALOGEX 0, 0, 400, 300
+IDD_SCENARIO_SELECT DIALOG DISCARDABLE 0, 0, 300, 175
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Select Scenario - WiNTown"
-FONT 8, "MS Sans Serif", 0, 0, 0x1
+FONT 8, "Tahoma"
 BEGIN
-    LTEXT           "Choose a scenario:",IDC_STATIC,10,10,80,12
-    LISTBOX         IDC_SCENARIO_LIST,10,25,160,200,WS_VSCROLL | WS_TABSTOP
-    GROUPBOX        "Description",IDC_STATIC,180,25,210,200
-    LTEXT           "",IDC_SCENARIO_DESC,190,40,190,180
-    DEFPUSHBUTTON   "OK",IDC_SCENARIO_OK,235,245,50,14
-    PUSHBUTTON      "Cancel",IDC_SCENARIO_CANCEL,295,245,50,14
+    LTEXT           "Choose a scenario:",IDC_STATIC,10,8,80,10
+    LISTBOX         IDC_SCENARIO_LIST,10,20,120,125,WS_CHILD | WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Description",IDC_STATIC,135,8,155,137
+    LTEXT           "",IDC_SCENARIO_DESC,140,20,145,120,WS_CHILD | WS_VISIBLE
+    DEFPUSHBUTTON   "OK",IDC_SCENARIO_OK,180,152,50,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP
+    PUSHBUTTON      "Cancel",IDC_SCENARIO_CANCEL,238,152,50,15,WS_CHILD | WS_VISIBLE | WS_TABSTOP
 END
 
 IDD_ABOUT_DIALOG DIALOG DISCARDABLE  0, 0, 200, 120
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About WiNTown"
-FONT 8, "MS Sans Serif"
+FONT 8, "Tahoma"
 BEGIN
     LTEXT           "https://github.com/tenox7/wintown",IDC_STATIC,20,40,160,8
     DEFPUSHBUTTON   "OK",IDOK,75,95,50,14
@@ -282,7 +357,7 @@ END
 IDD_EVALUATION DIALOG DISCARDABLE  0, 0, 260, 230
 STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "City Evaluation"
-FONT 8, "MS Sans Serif"
+FONT 8, "Tahoma"
 BEGIN
     LTEXT           "City Evaluation  1900",IDC_EVAL_TITLE,10,8,240,10
 

@@ -9,7 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifndef _WIN32_WCE
 #include <time.h>
+#endif
 #include <windows.h>
 #include "gdifix.h"
 

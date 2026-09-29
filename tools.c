@@ -23,61 +23,13 @@ extern short RValve, CValve, IValve;
 static char cpuArchStr[64] = "Unknown";
 static HBITMAP hCpuBitmap = NULL;
 
+#ifdef _WIN32_WCE
+extern int cbHeight;
+#endif
+
 /* CPU detection function using arch.h */
 void DetectCPUType(void) {
-    SYSTEM_INFO sysInfo;
-    int resourceId;
-    char bitmapName[32];
-    extern int findToolIconResourceByName(const char* toolName);
-    extern HBITMAP loadTilesetFromResource(int resourceId);
-    
-    GetSystemInfo(&sysInfo);
-    
-    /* Use ProcessorArchitectureNames array from arch.h for CPU name */
-    if (sysInfo.wProcessorArchitecture < 15) {
-        strcpy(cpuArchStr, ProcessorArchitectureNames[sysInfo.wProcessorArchitecture]);
-    } else {
-        strcpy(cpuArchStr, PROCESSOR_ARCHITECTURE_STR_UNKNOWN);
-    }
-    
-    /* Map to bitmap filename */
-    switch (sysInfo.wProcessorArchitecture) {
-        case PROCESSOR_ARCHITECTURE_INTEL:
-            strcpy(bitmapName, "x86");
-            break;
-        case PROCESSOR_ARCHITECTURE_MIPS:
-            strcpy(bitmapName, "mips");
-            break;
-        case PROCESSOR_ARCHITECTURE_ALPHA:
-            strcpy(bitmapName, "axp");
-            break;
-        case PROCESSOR_ARCHITECTURE_PPC:
-            strcpy(bitmapName, "ppc");
-            break;
-        case PROCESSOR_ARCHITECTURE_ARM:
-            strcpy(bitmapName, "arm");
-            break;
-        case PROCESSOR_ARCHITECTURE_IA64:
-            strcpy(bitmapName, "ia64");
-            break;
-        case PROCESSOR_ARCHITECTURE_ALPHA64:
-            strcpy(bitmapName, "axp64");
-            break;
-        case PROCESSOR_ARCHITECTURE_AMD64:
-            strcpy(bitmapName, "x64");
-            break;
-        case PROCESSOR_ARCHITECTURE_ARM64:
-            strcpy(bitmapName, "arm64");
-            break;
-        default:
-            strcpy(bitmapName, "x86");
-            break;
-    }
-    
-    resourceId = findToolIconResourceByName(bitmapName);
-    if (resourceId != 0) {
-        hCpuBitmap = loadTilesetFromResource(resourceId);
-    }
+    /* CPU indicator icon removed from toolbar to save vertical space on 640x480 */
 }
 
 /* Logging functions */
@@ -1437,7 +1389,7 @@ int Check6x6Area(int x, int y, int *cost) {
 #define TB_QUERY 115
 
 static HWND hwndToolbar = NULL; /* Toolbar window handle */
-static int toolbarWidth = 132;  /* Original Micropolis toolbar width */
+/* toolbarWidth is declared as extern at top of file */
 
 /* Tool bitmap handles */
 static HBITMAP hToolBitmaps[16]; /* Tool bitmaps */
@@ -1540,53 +1492,6 @@ LRESULT CALLBACK ToolbarProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
             DrawToolIcon(hdc, toolbarToStateMapping[i], iconCenterX, iconCenterY, toolLayout[i].iconWidth, toolLayout[i].iconHeight, isSelected);
         }
 
-        /* Draw CPU indicator at bottom of toolbar */
-        {
-            RECT cpuRect;
-            int cpuX, cpuY;
-            HDC hdcMem;
-            HBITMAP hOldBitmap;
-            FILE* debugFile;
-            
-            /* Get toolbar height and position CPU display at bottom */
-            GetClientRect(hwnd, &cpuRect);
-            cpuX = 34; /* Center 64px icon in 132px toolbar */
-            cpuY = cpuRect.bottom - 72; /* At bottom of toolbar with space for 64px icon */
-            
-            /* Debug logging to file */
-            debugFile = fopen("debug.log", "a");
-            if (debugFile) {
-                fprintf(debugFile, "CPU Display: rect.bottom=%d, cpuY=%d, bitmap=%p\n", 
-                        cpuRect.bottom, cpuY, hCpuBitmap);
-                fclose(debugFile);
-            }
-            
-            /* Draw CPU bitmap if available */
-            if (hCpuBitmap) {
-                hdcMem = CreateCompatibleDC(hdc);
-                if (hdcMem) {
-                    hOldBitmap = SelectObject(hdcMem, hCpuBitmap);
-                    
-                    /* Draw CPU bitmap (64x64) */
-                    BitBlt(hdc, cpuX, cpuY, 64, 64, hdcMem, 0, 0, SRCCOPY);
-                    
-                    SelectObject(hdcMem, hOldBitmap);
-                    DeleteDC(hdcMem);
-                }
-            } else {
-                /* Draw red placeholder rectangle if bitmap failed to load */
-                HBRUSH redBrush = CreateSolidBrush(RGB(255, 0, 0));
-                RECT bitmapRect;
-                bitmapRect.left = cpuX;
-                bitmapRect.top = cpuY;
-                bitmapRect.right = cpuX + 64;
-                bitmapRect.bottom = cpuY + 64;
-                FillRect(hdc, &bitmapRect, redBrush);
-                DeleteObject(redBrush);
-            }
-            
-            /* CPU text label removed - icon only */
-        }
 
         /* Show current tool information if a tool is active */
         if (isToolActive) {
@@ -1850,10 +1755,21 @@ void DrawToolIcon(HDC hdc, int toolType, int x, int y, int desiredWidth, int des
     DeleteDC(hdcMem);
 }
 
+/* Get toolbar window handle */
+HWND GetToolbarWindow(void) {
+    return hwndToolbar;
+}
+
 /* Create toolbar window */
 void CreateToolbar(HWND hwndParent, int x, int y, int width, int height) {
     WNDCLASS wc;
     RECT clientRect;
+
+    /* If toolbar already exists, reposition it rather than creating a duplicate */
+    if (hwndToolbar != NULL && IsWindow(hwndToolbar)) {
+        MoveWindow(hwndToolbar, x, y, (width > 0) ? width : toolbarWidth, height, TRUE);
+        return;
+    }
 
     /* Load the tool bitmaps */
     LoadToolbarBitmaps();
@@ -1886,8 +1802,10 @@ void CreateToolbar(HWND hwndParent, int x, int y, int width, int height) {
         WS_EX_DLGMODALFRAME, /* Using dialog frame style for a raised appearance */
         "WiNTownToolbar", NULL,
         WS_CHILD | WS_VISIBLE, /* Removed WS_BORDER as DLGMODALFRAME provides its own border */
-        0, 0,                  /* x, y - will be adjusted below */
-        toolbarWidth, clientRect.bottom, hwndParent, NULL, GetModuleHandle(NULL), NULL);
+        x, y,                  /* x, y positioning */
+        (width > 0) ? width : toolbarWidth,
+        (height > 0) ? height : clientRect.bottom,
+        hwndParent, NULL, GetModuleHandle(NULL), NULL);
 
     /* Set the tool to bulldozer by default */
     SelectTool(bulldozerState);
@@ -2786,7 +2704,11 @@ void ScreenToMap(int screenX, int screenY, int *mapX, int *mapY, int xOffset, in
      * no need to adjust for toolbar as screenX is already relative to the left of client area
      */
     *mapX = (screenX + xOffset - toolbarWidth) / TILE_SIZE;
+#ifdef _WIN32_WCE
+    *mapY = (screenY + yOffset - cbHeight) / TILE_SIZE;
+#else
     *mapY = (screenY + yOffset) / TILE_SIZE;
+#endif
 }
 
 /* Mouse handler for tools - converts mouse coordinates to map coordinates and applies the current

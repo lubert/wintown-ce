@@ -1,0 +1,28 @@
+CC = gcc
+RC = windres
+CFLAGS = -O2 -I. -std=gnu89 -fcommon -DNEW32=1 -Wno-implicit-int -Wno-implicit-function-declaration -D_CRT_SECURE_NO_WARNINGS
+LIBS = -lgdi32 -luser32 -lkernel32 -lcomdlg32 -lcomctl32
+
+LOCAL_OBJS = anim.o animtab.o assets.o budget.o charts.o disastr.o eval.o gdifix.o main.o mapgen.o newgame.o notify.o scenario.o sim.o sprite.o tiles.o tools.o
+SIM_OBJS = s_disast.o s_eval.o s_gen.o s_power.o s_scan.o s_sim.o s_traf.o s_zone.o
+OBJS = $(LOCAL_OBJS) $(SIM_OBJS)
+
+all: wintown.exe
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+s_sim.o: micropolis/src/sim/s_sim.c
+	$(CC) $(CFLAGS) -include w_sim.h -c micropolis/src/sim/s_sim.c -o s_sim.o
+
+s_%.o: micropolis/src/sim/s_%.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+wintown_res.o: wintown.rc
+	$(RC) -I. wintown.rc -o wintown_res.o
+
+wintown.exe: $(OBJS) wintown_res.o
+	$(CC) -o wintown.exe $(OBJS) wintown_res.o $(LIBS) -mwindows
+
+clean:
+	del /q /f *.o wintown.exe

@@ -20,6 +20,13 @@
 
 #define doAllGraphs()
 
+#ifdef _WIN32_WCE
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+#endif
+
 static short NewMapFlags[16];
 static short NewMap;
 static short NewGraph;

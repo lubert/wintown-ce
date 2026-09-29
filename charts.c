@@ -13,6 +13,7 @@ extern void addDebugLog(const char* format, ...);
 
 /* External window handles and variables */
 extern HWND hwndMain;
+extern HMENU GetAppViewMenu(void);
 
 /* Menu IDs - matching definitions from main.c */
 #define IDM_VIEW_CHARTSWINDOW 4106
@@ -608,11 +609,10 @@ LRESULT CALLBACK ChartWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
             ShowWindow(hwnd, SW_HIDE);
             
             /* Update menu checkmark */
-            if (hwndMain) {
-                HMENU hMenu = GetMenu(hwndMain);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-                if (hViewMenu) {
-                    CheckMenuItem(hViewMenu, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+            {
+                HMENU hVM = GetAppViewMenu();
+                if (hVM) {
+                    CheckMenuItem(hVM, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                 }
             }
             return 0;

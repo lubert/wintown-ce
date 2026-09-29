@@ -13,7 +13,7 @@ extern int disastersDisabled;
 /* Sprite globals */
 static SimSprite GlobalSprites[MAX_SPRITES];
 static int SpriteCount = 0;
-static short CrashX, CrashY;
+/* CrashX, CrashY declared as extern in sim.h and defined in disastr.c */
 static int SpriteCycle = 0;
 static int absDist;
 

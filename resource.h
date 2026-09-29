@@ -4,25 +4,30 @@
 //
 #define IDD_NEWGAME                     100
 #define IDD_SCENARIO_SELECT             101
+#define IDR_MAINMENU                    102
+
+/* Control IDs for New Game dialog */
+#define IDC_NEW_CITY                    1051
+#define IDC_LOAD_CITY_BUILTIN           1052
+#define IDC_LOAD_CITY_FILE              1053
+#define IDC_SCENARIO                    1054
+#define IDC_DIFFICULTY_EASY             1055
+#define IDC_DIFFICULTY_MEDIUM           1056
+#define IDC_DIFFICULTY_HARD             1057
+#define IDC_CITY_NAME                   1058
+#define IDC_OK                          1059
+#define IDC_CANCEL                      1060
+
+/* Control IDs for Budget dialog */
 #define IDD_BUDGET                      1001
-#define IDC_NEW_CITY                    1001
 #define IDC_TAX_RATE_SLIDER             1002
-#define IDC_LOAD_CITY_BUILTIN           1002
-#define IDC_LOAD_CITY_FILE              1021
 #define IDC_TAX_RATE_LABEL              1003
-#define IDC_SCENARIO                    1003
 #define IDC_ROAD_SLIDER                 1004
-#define IDC_DIFFICULTY_EASY             1004
 #define IDC_ROAD_LABEL                  1005
-#define IDC_DIFFICULTY_MEDIUM           1005
 #define IDC_FIRE_SLIDER                 1006
-#define IDC_DIFFICULTY_HARD             1006
 #define IDC_FIRE_LABEL                  1007
-#define IDC_CITY_NAME                   1007
 #define IDC_POLICE_SLIDER               1008
-#define IDC_OK                          1008
 #define IDC_POLICE_LABEL                1009
-#define IDC_CANCEL                      1009
 #define IDC_TAXES_COLLECTED             1010
 #define IDC_CASH_FLOW                   1011
 #define IDC_PREVIOUS_FUNDS              1012

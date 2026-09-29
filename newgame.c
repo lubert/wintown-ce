@@ -253,6 +253,28 @@ BOOL CALLBACK newGameDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         /* Generate default preview for "New City" selection */
         generateDefaultPreview(hwnd);
         
+        /* Explicitly ensure all controls are top in Z-order and visible on Windows CE */
+        {
+            int ctrlIds[] = {
+                IDC_CANCEL, IDC_OK,
+                IDC_MAP_ISLAND, IDC_WATER_PERCENT, IDC_FOREST_PERCENT,
+                IDC_WATER_LABEL, IDC_FOREST_LABEL, IDC_GENERATE_PREVIEW,
+                IDC_DIFFICULTY_HARD, IDC_DIFFICULTY_MEDIUM, IDC_DIFFICULTY_EASY,
+                IDC_SCENARIO, IDC_LOAD_CITY_FILE, IDC_LOAD_CITY_BUILTIN, IDC_NEW_CITY,
+                IDC_CITY_NAME
+            };
+            int c;
+            for (c = 0; c < (int)(sizeof(ctrlIds)/sizeof(ctrlIds[0])); c++) {
+                HWND hCtrl = GetDlgItem(hwnd, ctrlIds[c]);
+                if (hCtrl) {
+                    ShowWindow(hCtrl, SW_SHOW);
+                    BringWindowToTop(hCtrl);
+                    SetWindowPos(hCtrl, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW);
+                }
+            }
+        }
+
+        InvalidateRect(hwnd, NULL, TRUE);
         addGameLog("New game dialog initialized with defaults");
         return TRUE;
     }
@@ -472,6 +494,7 @@ BOOL CALLBACK newGameDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             }
             break;
             
+        case IDOK:
         case IDC_OK: {
             addGameLog("User clicked OK in new game dialog");
             if (!currentConfig) {
@@ -557,6 +580,7 @@ BOOL CALLBACK newGameDialogProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             return TRUE;
         }
         
+        case IDCANCEL:
         case IDC_CANCEL:
             addGameLog("User clicked Cancel in new game dialog");
             /* Clean up preview bitmap */

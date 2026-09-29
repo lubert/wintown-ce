@@ -6,6 +6,9 @@
 #define _SIM_H
 
 #include <windows.h>
+#ifdef _WIN32_WCE
+#include "cecompat.h"
+#endif
 #include "sprite.h"
 
 /* External declaration for UpdateToolbar function */

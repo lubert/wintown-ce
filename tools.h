@@ -45,6 +45,7 @@ extern BOOL isToolDragging;
 
 /* Functions for tool management */
 void CreateToolbar(HWND hwndParent, int x, int y, int width, int height);
+HWND GetToolbarWindow(void);
 void SelectTool(int toolType);
 int ApplyTool(int mapX, int mapY);
 int GetCurrentTool(void);

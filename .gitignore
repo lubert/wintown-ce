@@ -1,0 +1,6 @@
+*.obj
+*.res
+*.RES
+*.exe
+debug.log
+release_wce_mips/

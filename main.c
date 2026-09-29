@@ -236,7 +236,12 @@ static int cxClient = 0;
 static int cyClient = 0;
 static int xOffset = 0;
 static int yOffset = 0;
-static int toolbarWidth = 132; /* Original Micropolis toolbar width */
+int toolbarWidth = 132; /* Original Micropolis toolbar width */
+#ifdef _WIN32_WCE
+int cbHeight = 26; /* Height of CommandBar on Windows CE */
+#else
+int cbHeight = 0;
+#endif
 
 int AutoGo = 1; /* Auto-scroll to event locations */
 
@@ -259,6 +264,28 @@ static HMENU hToolMenu = NULL;
 static HMENU hSpawnMenu = NULL;
 static HMENU hDisasterMenu = NULL;
 static HMENU hSettingsMenu = NULL;
+static HMENU hViewMenu = NULL;
+
+HMENU GetAppViewMenu(void) {
+    if (hViewMenu) {
+        return hViewMenu;
+    }
+#ifdef _WIN32_WCE
+    if (g_hMainMenu) {
+        hViewMenu = GetSubMenu(g_hMainMenu, 6);
+        return hViewMenu;
+    }
+#endif
+    if (hwndMain) {
+        HMENU h = GetMenu(hwndMain);
+        if (h) {
+            hViewMenu = GetSubMenu(h, 6);
+            return hViewMenu;
+        }
+    }
+    return NULL;
+}
+
 static char currentTileset[MAX_PATH] = "classic";
 static int powerOverlayEnabled = 0; /* Power overlay display toggle */
 int disastersDisabled = 0; /* Cheat flag to disable disasters - global for other modules */
@@ -504,7 +531,11 @@ BOOL WINAPI MyPathRemoveFileSpecA(char* path)
 	return modified;
 }
 
+#ifdef _WIN32_WCE
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPWSTR lpCmdLine, int nCmdShow) {
+#else
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+#endif
     WNDCLASS wc, wcInfo;
     MSG msg;
     RECT rect;
@@ -607,13 +638,64 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
+#ifdef _WIN32_WCE
+    {
+        RECT rcWork;
+        int screenWidth = 640;
+        int screenHeight = 454;
+        if (SystemParametersInfo(SPI_GETWORKAREA, 0, &rcWork, 0)) {
+            screenWidth = rcWork.right - rcWork.left;
+            screenHeight = rcWork.bottom - rcWork.top;
+        }
+        hwndMain = CreateWindowEx(0, "WiNTown", "WiNTown",
+                                  WS_VISIBLE, rcWork.left, rcWork.top, screenWidth, screenHeight,
+                                  NULL, NULL, hInstance, NULL);
+    }
+    if (hwndMain) {
+        g_hwndCB = CommandBar_Create(hInstance, hwndMain, 1);
+        if (g_hwndCB) {
+            CommandBar_InsertMenubar(g_hwndCB, hInstance, IDR_MAINMENU, 0);
+            CommandBar_AddAdornments(g_hwndCB, 0, 0);
+            cbHeight = CommandBar_Height(g_hwndCB);
+            g_hMainMenu = CommandBar_GetMenu(g_hwndCB, 0);
+            if (g_hMainMenu) {
+                hFileMenu = GetSubMenu(g_hMainMenu, 0);
+                hScenarioMenu = GetSubMenu(g_hMainMenu, 1);
+                hTilesetMenu = GetSubMenu(g_hMainMenu, 2);
+                hSpawnMenu = GetSubMenu(g_hMainMenu, 3);
+                hDisasterMenu = GetSubMenu(g_hMainMenu, 4);
+                hSettingsMenu = GetSubMenu(g_hMainMenu, 5);
+                hViewMenu = GetSubMenu(g_hMainMenu, 6);
+                if (hTilesetMenu) {
+                    populateTilesetMenu(hTilesetMenu);
+                }
+                CheckMenuItem(hSettingsMenu, IDM_SIM_MEDIUM, MF_CHECKED);
+                CheckMenuItem(hSettingsMenu, IDM_SETTINGS_LEVEL_EASY, MF_CHECKED);
+                CheckMenuItem(hSettingsMenu, IDM_SETTINGS_AUTO_BUDGET, AutoBudget ? MF_CHECKED : MF_UNCHECKED);
+                CheckMenuItem(hSettingsMenu, IDM_SETTINGS_AUTO_BULLDOZE, autoBulldoze ? MF_CHECKED : MF_UNCHECKED);
+                CheckMenuItem(hSettingsMenu, IDM_SETTINGS_AUTO_GOTO, AutoGo ? MF_CHECKED : MF_UNCHECKED);
+                CheckMenuItem(hSettingsMenu, IDM_CHEATS_DISABLE_DISASTERS, !disastersDisabled ? MF_CHECKED : MF_UNCHECKED);
+                CommandBar_DrawMenuBar(g_hwndCB, 0);
+            }
+        }
+    }
+#else
     hMenu = createMainMenu();
 
-    /* Create main window */
-    hwndMain = CreateWindowEx(WS_EX_CLIENTEDGE, "WiNTown", "WiNTown - Tileset: classic",
-                              WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
-                              932, 600, /* Additional 132px width for the original toolbar */
-                              NULL, hMenu, hInstance, NULL);
+    /* Create main window sized for 640x480 client area */
+    {
+        RECT wr;
+        wr.left = 0;
+        wr.top = 0;
+        wr.right = 640;
+        wr.bottom = 480;
+        AdjustWindowRectEx(&wr, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, TRUE, WS_EX_CLIENTEDGE);
+        hwndMain = CreateWindowEx(WS_EX_CLIENTEDGE, "WiNTown", "WiNTown - Tileset: classic",
+                                  WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
+                                  wr.right - wr.left, wr.bottom - wr.top,
+                                  NULL, hMenu, hInstance, NULL);
+    }
+#endif
 
     if (hwndMain == NULL) {
         MessageBox(NULL, "Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
@@ -625,24 +707,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     mainWindowX = rect.left;
     mainWindowY = rect.top;
 
-    /* Create info window */
+    /* Create info window (hidden by default, centered for 640x480) */
     hwndInfo = CreateWindowEx(WS_EX_TOOLWINDOW, INFO_WINDOW_CLASS, "WiNTown Info",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE,
-        mainWindowX + rect.right - rect.left + 10, mainWindowY, /* Position to right of main window */
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+        mainWindowX + (640 - INFO_WINDOW_WIDTH) / 2, mainWindowY + (480 - INFO_WINDOW_HEIGHT) / 2,
         INFO_WINDOW_WIDTH, INFO_WINDOW_HEIGHT, NULL, NULL, hInstance, NULL);
 
     if (hwndInfo == NULL) {
         MessageBox(NULL, "Info Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         /* Continue anyway, just without the info window */
-    } else {
-        /* Start timer to update info window */
-        SetTimer(hwndInfo, INFO_TIMER_ID, INFO_TIMER_INTERVAL, NULL);
     }
 
-    /* Create log window */
+    /* Create log window (hidden by default, centered for 640x480) */
     hwndLog = CreateWindowEx(WS_EX_TOOLWINDOW, LOG_WINDOW_CLASS, "WiNTown Message Log",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE | WS_VSCROLL,
-        mainWindowX + rect.right - rect.left + 10, mainWindowY + INFO_WINDOW_HEIGHT + 30, /* Position below info window */
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VSCROLL,
+        mainWindowX + (640 - LOG_WINDOW_WIDTH) / 2, mainWindowY + (480 - LOG_WINDOW_HEIGHT) / 2,
         LOG_WINDOW_WIDTH, LOG_WINDOW_HEIGHT, NULL, NULL, hInstance, NULL);
 
     if (hwndLog == NULL) {
@@ -650,7 +729,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         /* Continue anyway, just without the log window */
     }
 
-    /* Create minimap window */
+    /* Create minimap window (hidden by default, centered for 640x480) */
     {
         RECT desiredClientRect;
         RECT windowRect;
@@ -672,17 +751,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         windowHeight = windowRect.bottom - windowRect.top;
         
         hwndMinimap = CreateWindowEx(WS_EX_TOOLWINDOW, MINIMAP_WINDOW_CLASS, "WiNTown Minimap - Right-click for options",
-            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_VISIBLE,
-            mainWindowX + rect.right - rect.left + 10, mainWindowY + INFO_WINDOW_HEIGHT + 10, /* Position underneath info window */
+            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
+            mainWindowX + (640 - windowWidth) / 2, mainWindowY + (480 - windowHeight) / 2,
             windowWidth, windowHeight, NULL, NULL, hInstance, NULL);
     }
 
     if (hwndMinimap == NULL) {
         MessageBox(NULL, "Minimap Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
         /* Continue anyway, just without the minimap window */
-    } else {
-        /* Start slower periodic timer for minimap updates */
-        SetTimer(hwndMinimap, MINIMAP_TIMER_ID, MINIMAP_TIMER_INTERVAL, NULL);
     }
 
     /* Create tiles debug window (hidden by default) */
@@ -699,11 +775,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         addDebugLog("Tiles window created successfully: hwnd=%p", hwndTiles);
     }
 
-    /* Create charts window (auto-opens below main window) */
+    /* Create charts window (hidden by default, sized 480x320 and centered for 640x480) */
     hwndCharts = CreateWindowEx(WS_EX_TOOLWINDOW, CHART_WINDOW_CLASS, "WiNTown Charts - Right-click for options",
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME,
-        mainWindowX, mainWindowY + (rect.bottom - rect.top) + 10, /* Position below main window */
-        rect.right - rect.left, (rect.bottom - rect.top) * 2 / 5, NULL, NULL, hInstance, NULL);
+        mainWindowX + (640 - 480) / 2, mainWindowY + (480 - 320) / 2,
+        480, 320, NULL, NULL, hInstance, NULL);
 
     if (hwndCharts == NULL) {
         MessageBox(NULL, "Charts Window Creation Failed!", "Error", MB_ICONEXCLAMATION | MB_OK);
@@ -711,8 +787,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         /* Continue anyway, just without the charts window */
     } else {
         addDebugLog("Charts window created successfully: hwnd=%p", hwndCharts);
-        /* Show charts window by default */
-        ShowWindow(hwndCharts, SW_SHOWNORMAL);
     }
 
     /* Initialize graphics first */
@@ -1016,10 +1090,11 @@ LRESULT CALLBACK logWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_CLOSE:
         ShowWindow(hwnd, SW_HIDE);
         logWindowVisible = FALSE;
-        if (hwndMain) {
-            HMENU hMenu = GetMenu(hwndMain);
-            HMENU hViewMenu = GetSubMenu(hMenu, 6);
-            CheckMenuItem(hViewMenu, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+        {
+            HMENU hVM = GetAppViewMenu();
+            if (hVM) {
+                CheckMenuItem(hVM, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+            }
         }
         return 0;
     }
@@ -1082,9 +1157,6 @@ void updateLogWindow(void) {
  * Info window procedure - handles messages for the info window
  */
 LRESULT CALLBACK infoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    HMENU hMenu;
-    HMENU hViewMenu;
-
     switch (msg) {
     case WM_PAINT: {
         PAINTSTRUCT ps;
@@ -1219,14 +1291,14 @@ LRESULT CALLBACK infoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
 
     case WM_CLOSE:
         /* Don't destroy, just hide the window */
+        KillTimer(hwnd, INFO_TIMER_ID);
         ShowWindow(hwnd, SW_HIDE);
 
         /* Update menu checkmark */
-        if (hwndMain) {
-            hMenu = GetMenu(hwndMain);
-            hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-            if (hViewMenu) {
-                CheckMenuItem(hViewMenu, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+        {
+            HMENU hVM = GetAppViewMenu();
+            if (hVM) {
+                CheckMenuItem(hVM, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
             }
         }
         return 0;
@@ -1245,8 +1317,6 @@ LRESULT CALLBACK infoWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
  * Allows panning the main view by clicking and dragging
  */
 LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    HMENU hMenu;
-    HMENU hViewMenu;
     RECT rect;
     POINT pt;
 
@@ -1785,6 +1855,7 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         }
         break;
 
+#ifndef _WIN32_WCE
     case WM_GETMINMAXINFO: {
         MINMAXINFO* mmi = (MINMAXINFO*)lParam;
         /* Set minimum window size to ensure map fits */
@@ -1792,6 +1863,7 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         mmi->ptMinTrackSize.y = MINIMAP_WINDOW_HEIGHT;
         return 0;
     }
+#endif
 
     case WM_CLOSE:
         /* Don't destroy, just hide the window */
@@ -1799,11 +1871,10 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         ShowWindow(hwnd, SW_HIDE);
 
         /* Update menu checkmark */
-        if (hwndMain) {
-            hMenu = GetMenu(hwndMain);
-            hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-            if (hViewMenu) {
-                CheckMenuItem(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+        {
+            HMENU hVM = GetAppViewMenu();
+            if (hVM) {
+                CheckMenuItem(hVM, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
             }
         }
         return 0;
@@ -1822,8 +1893,6 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
  * Shows tile coordinates on mouse hover in window title
  */
 LRESULT CALLBACK tilesWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    HMENU hMenu;
-    HMENU hViewMenu;
     PAINTSTRUCT ps;
     HDC hdc;
     RECT rect;
@@ -1970,10 +2039,11 @@ LRESULT CALLBACK tilesWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
         selectedTileX = -1;
         selectedTileY = -1;
         
-        hMenu = GetMenu(hwndMain);
-        hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-        if (hViewMenu) {
-            CheckMenuItem(hViewMenu, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+        {
+            HMENU hVM = GetAppViewMenu();
+            if (hVM) {
+                CheckMenuItem(hVM, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+            }
         }
         return 0;
 
@@ -2097,9 +2167,6 @@ void ToolDrag(int screenX, int screenY) {
 LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE:
-        /* Initialize toolbar */
-        CreateToolbar(hwnd, 0, 0, 108, 600);
-
         /* Load sprite bitmaps */
         loadSpriteBitmaps();
 
@@ -2210,87 +2277,89 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         /* View menu items */
         case IDM_VIEW_INFOWINDOW:
             if (hwndInfo) {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-                UINT state = GetMenuState(hViewMenu, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND);
+                HMENU hVM = GetAppViewMenu();
 
-                if (state & MF_CHECKED) {
+                if (IsWindowVisible(hwndInfo)) {
                     /* Hide info window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                     KillTimer(hwndInfo, INFO_TIMER_ID);
                     ShowWindow(hwndInfo, SW_HIDE);
                 } else {
-                    /* Show info window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_CHECKED);
+                    /* Show info window centered */
+                    RECT mr;
+                    GetWindowRect(hwnd, &mr);
+                    SetWindowPos(hwndInfo, HWND_TOP, mr.left + (640 - INFO_WINDOW_WIDTH) / 2, mr.top + (480 - INFO_WINDOW_HEIGHT) / 2, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_INFOWINDOW, MF_BYCOMMAND | MF_CHECKED);
                     SetTimer(hwndInfo, INFO_TIMER_ID, INFO_TIMER_INTERVAL, NULL);
                     ShowWindow(hwndInfo, SW_SHOW);
-                    SetFocus(hwnd); /* Keep focus on main window */
+                    SetForegroundWindow(hwndInfo);
                 }
             }
             return 0;
 
         case IDM_VIEW_LOGWINDOW:
             if (hwndLog) {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-                UINT state = GetMenuState(hViewMenu, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND);
+                HMENU hVM = GetAppViewMenu();
 
-                if (state & MF_CHECKED) {
+                if (IsWindowVisible(hwndLog)) {
                     /* Hide log window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                     ShowWindow(hwndLog, SW_HIDE);
                     logWindowVisible = FALSE;
                 } else {
-                    /* Show log window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_CHECKED);
+                    /* Show log window centered */
+                    RECT mr;
+                    GetWindowRect(hwnd, &mr);
+                    SetWindowPos(hwndLog, HWND_TOP, mr.left + (640 - LOG_WINDOW_WIDTH) / 2, mr.top + (480 - LOG_WINDOW_HEIGHT) / 2, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_LOGWINDOW, MF_BYCOMMAND | MF_CHECKED);
                     ShowWindow(hwndLog, SW_SHOW);
-                    SetFocus(hwnd); /* Keep focus on main window */
+                    SetForegroundWindow(hwndLog);
                     logWindowVisible = TRUE;
                 }
             }
             return 0;
 
-
         case IDM_VIEW_POWER_OVERLAY: {
-            HMENU hMenu = GetMenu(hwnd);
-            HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
+            HMENU hVM = GetAppViewMenu();
             
             /* Simply toggle based on current variable state */
             powerOverlayEnabled = !powerOverlayEnabled;
             
+            if (hVM) {
+                CheckMenuItem(hVM, IDM_VIEW_POWER_OVERLAY, MF_BYCOMMAND | (powerOverlayEnabled ? MF_CHECKED : MF_UNCHECKED));
+            }
             if (powerOverlayEnabled) {
                 /* Enable power overlay */
-                CheckMenuItem(hViewMenu, IDM_VIEW_POWER_OVERLAY, MF_BYCOMMAND | MF_CHECKED);
                 addGameLog("Power overlay enabled");
                 /* Power grid is updated regularly by simulation - no immediate update needed */
             } else {
                 /* Disable power overlay */
-                CheckMenuItem(hViewMenu, IDM_VIEW_POWER_OVERLAY, MF_BYCOMMAND | MF_UNCHECKED);
                 addGameLog("Power overlay disabled");
             }
 
             /* Force a redraw to show/hide the overlay */
             InvalidateRect(hwnd, NULL, TRUE);
-        }
             return 0;
+        }
 
         case IDM_VIEW_MINIMAPWINDOW:
             if (hwndMinimap) {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
-                UINT state = GetMenuState(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND);
+                HMENU hVM = GetAppViewMenu();
 
-                if (state & MF_CHECKED) {
+                if (IsWindowVisible(hwndMinimap)) {
                     /* Hide minimap window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                     KillTimer(hwndMinimap, MINIMAP_TIMER_ID);
                     ShowWindow(hwndMinimap, SW_HIDE);
                 } else {
-                    /* Show minimap window */
-                    CheckMenuItem(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_CHECKED);
+                    /* Show minimap window centered */
+                    RECT mr;
+                    GetWindowRect(hwnd, &mr);
+                    SetWindowPos(hwndMinimap, HWND_TOP, mr.left + (640 - MINIMAP_WINDOW_WIDTH) / 2, mr.top + (480 - MINIMAP_WINDOW_HEIGHT) / 2, 0, 0, SWP_NOSIZE | SWP_SHOWWINDOW);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_MINIMAPWINDOW, MF_BYCOMMAND | MF_CHECKED);
                     SetTimer(hwndMinimap, MINIMAP_TIMER_ID, MINIMAP_TIMER_INTERVAL, NULL);
                     ShowWindow(hwndMinimap, SW_SHOW);
-                    SetFocus(hwnd); /* Keep focus on main window */
+                    SetForegroundWindow(hwndMinimap);
                 }
             }
             return 0;
@@ -2298,21 +2367,20 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case IDM_VIEW_TILESWINDOW:
             addDebugLog("Tiles window menu clicked, hwndTiles=%p", hwndTiles);
             if (hwndTiles) {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
+                HMENU hVM = GetAppViewMenu();
 
                 addDebugLog("Current tilesWindowVisible: %d", tilesWindowVisible);
-                if (tilesWindowVisible) {
+                if (IsWindowVisible(hwndTiles)) {
                     /* Hide tiles debug window */
                     addDebugLog("Hiding tiles window");
                     tilesWindowVisible = FALSE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                     ShowWindow(hwndTiles, SW_HIDE);
                 } else {
                     /* Show tiles debug window */
                     addDebugLog("Showing tiles window");
                     tilesWindowVisible = TRUE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_CHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_TILESWINDOW, MF_BYCOMMAND | MF_CHECKED);
                     ShowWindow(hwndTiles, SW_SHOWNORMAL);
                     SetForegroundWindow(hwndTiles);
                 }
@@ -2323,21 +2391,23 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case IDM_VIEW_CHARTSWINDOW:
             if (hwndCharts) {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
+                HMENU hVM = GetAppViewMenu();
 
                 addDebugLog("Current chartsWindowVisible: %d", chartsWindowVisible);
-                if (chartsWindowVisible) {
+                if (IsWindowVisible(hwndCharts)) {
                     /* Hide charts window */
                     addDebugLog("Hiding charts window");
                     chartsWindowVisible = FALSE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_UNCHECKED);
                     ShowChartWindow(0); /* Use existing function which handles timer */
                 } else {
-                    /* Show charts window */
+                    /* Show charts window centered */
+                    RECT mr;
+                    GetWindowRect(hwnd, &mr);
+                    SetWindowPos(hwndCharts, HWND_TOP, mr.left + (640 - 480) / 2, mr.top + (480 - 320) / 2, 480, 320, SWP_SHOWWINDOW);
                     addDebugLog("Showing charts window");
                     chartsWindowVisible = TRUE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_CHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_CHARTSWINDOW, MF_BYCOMMAND | MF_CHECKED);
                     ShowChartWindow(1); /* Use existing function which handles timer */
                     SetForegroundWindow(hwndCharts);
                 }
@@ -2348,19 +2418,18 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
         case IDM_VIEW_TILE_DEBUG:
             {
-                HMENU hMenu = GetMenu(hwnd);
-                HMENU hViewMenu = GetSubMenu(hMenu, 6); /* View is the 7th menu (0-based index) */
+                HMENU hVM = GetAppViewMenu();
 
                 if (tileDebugEnabled) {
                     /* Disable tile debug */
                     tileDebugEnabled = FALSE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_TILE_DEBUG, MF_BYCOMMAND | MF_UNCHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_TILE_DEBUG, MF_BYCOMMAND | MF_UNCHECKED);
                     /* Reset window title to remove tile info */
                     SetWindowText(hwnd, "WiNTown NT");
                 } else {
                     /* Enable tile debug */
                     tileDebugEnabled = TRUE;
-                    CheckMenuItem(hViewMenu, IDM_VIEW_TILE_DEBUG, MF_BYCOMMAND | MF_CHECKED);
+                    if (hVM) CheckMenuItem(hVM, IDM_VIEW_TILE_DEBUG, MF_BYCOMMAND | MF_CHECKED);
                 }
             }
             return 0;
@@ -2889,8 +2958,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 if (shakeY < -20) shakeY = -20;
             }
             
-            /* Copy the buffer to the screen with offset for toolbar and earthquake shake */
-            BitBlt(hdc, toolbarWidth + shakeX, shakeY, cxClient - toolbarWidth, cyClient, 
+            /* Copy the buffer to the screen with offset for toolbar, commandbar, and earthquake shake */
+            BitBlt(hdc, toolbarWidth + shakeX, cbHeight + shakeY, cxClient - toolbarWidth, cyClient - cbHeight, 
                    hdcBuffer, 0, 0, SRCCOPY);
         }
 
@@ -2902,8 +2971,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int xPos = LOWORD(lParam);
         int yPos = HIWORD(lParam);
 
-        /* Skip toolbar area */
-        if (xPos < toolbarWidth) {
+        /* Skip toolbar and CommandBar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight) {
             return 0;
         }
 
@@ -2944,8 +3013,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int yPos = HIWORD(lParam);
         int mapX, mapY;
 
-        /* Skip toolbar area */
-        if (xPos < toolbarWidth) {
+        /* Skip toolbar and CommandBar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight) {
             SetCursor(LoadCursor(NULL, IDC_ARROW));
             return 0;
         }
@@ -3004,7 +3073,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             {
                 RECT updateRect;
                 updateRect.left = toolbarWidth;
-                updateRect.top = 0;
+                updateRect.top = cbHeight;
                 updateRect.right = cxClient;
                 updateRect.bottom = cyClient;
                 InvalidateRect(hwnd, &updateRect, FALSE);
@@ -3034,8 +3103,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int xPos = LOWORD(lParam);
         int yPos = HIWORD(lParam);
 
-        /* Skip toolbar area */
-        if (xPos < toolbarWidth) {
+        /* Skip toolbar and CommandBar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight) {
             return 0;
         }
 
@@ -3079,19 +3148,25 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         cxClient = LOWORD(lParam);
         cyClient = HIWORD(lParam);
 
+#ifdef _WIN32_WCE
+        if (g_hwndCB) {
+            cbHeight = CommandBar_Height(g_hwndCB);
+        }
+#endif
+
         /* Get the toolbar window handle */
-        hwndToolbarWnd = FindWindow("WiNTownToolbar", NULL);
+        hwndToolbarWnd = GetToolbarWindow();
 
         /* If the toolbar exists, adjust its position */
-        if (hwndToolbarWnd) {
-            MoveWindow(hwndToolbarWnd, 0, 0, toolbarWidth, cyClient, TRUE);
+        if (hwndToolbarWnd && IsWindow(hwndToolbarWnd)) {
+            MoveWindow(hwndToolbarWnd, 0, cbHeight, toolbarWidth, cyClient - cbHeight, TRUE);
         } else {
             /* Create the toolbar if it doesn't exist yet */
-            CreateToolbar(hwnd, 0, 0, toolbarWidth, cyClient);
+            CreateToolbar(hwnd, 0, cbHeight, toolbarWidth, cyClient - cbHeight);
         }
 
-        /* Resize the drawing buffer to the client area less the toolbar */
-        resizeBuffer(cxClient - toolbarWidth, cyClient);
+        /* Resize the drawing buffer to the client area less the toolbar and commandbar */
+        resizeBuffer(cxClient - toolbarWidth, cyClient - cbHeight);
 
         /* Adjust the xOffset to account for the toolbar */
         xOffset = toolbarWidth;
@@ -3172,8 +3247,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         cleanupGraphics();
 
         /* Clean up toolbar */
-        if (FindWindow("WiNTownToolbar", NULL)) {
-            DestroyWindow(FindWindow("WiNTownToolbar", NULL));
+        if (GetToolbarWindow()) {
+            DestroyWindow(GetToolbarWindow());
         }
 
         /* Clean up toolbar bitmaps */
@@ -3680,6 +3755,7 @@ void resizeBuffer(int cx, int cy) {
     RECT rcBuffer;
     BITMAPINFOHEADER bi;
     BITMAPINFO binfo;
+    void *bits;
     char errorMsg[256];
     DWORD error;
 
@@ -3695,7 +3771,7 @@ void resizeBuffer(int cx, int cy) {
         RealizePalette(hdc);
     }
 
-#if NEW32XX
+#if NEW32
     ZeroMemory(&bi, sizeof(BITMAPINFOHEADER));
     bi.biSize = sizeof(BITMAPINFOHEADER);
     bi.biWidth = cx;
@@ -3774,16 +3850,17 @@ void scrollView(int dx, int dy) {
         yOffset = 0;
     }
 
-    if (xOffset > WORLD_X * TILE_SIZE - cxClient) {
-        xOffset = WORLD_X * TILE_SIZE - cxClient;
+    if (xOffset > WORLD_X * TILE_SIZE - (cxClient - toolbarWidth)) {
+        xOffset = WORLD_X * TILE_SIZE - (cxClient - toolbarWidth);
     }
-    if (yOffset > WORLD_Y * TILE_SIZE - cyClient) {
-        yOffset = WORLD_Y * TILE_SIZE - cyClient;
+    if (yOffset > WORLD_Y * TILE_SIZE - (cyClient - cbHeight)) {
+        yOffset = WORLD_Y * TILE_SIZE - (cyClient - cbHeight);
     }
 
-    /* Get client area without toolbar */
+    /* Get client area without toolbar and CommandBar */
     GetClientRect(hwndMain, &rcClient);
     rcClient.left = toolbarWidth; /* Skip toolbar area */
+    rcClient.top = cbHeight;      /* Skip CommandBar area */
 
     /* Create update region for the map area only */
     hRgn = CreateRectRgnIndirect(&rcClient);
@@ -5145,8 +5222,8 @@ void drawCity(HDC hdc) {
         GetCursorPos(&mousePos);
         ScreenToClient(hwndMain, &mousePos);
 
-        /* Skip if mouse is outside client area or in toolbar */
-        if (mousePos.x >= toolbarWidth && mousePos.y >= 0 && mousePos.x < cxClient &&
+        /* Skip if mouse is outside client area or in toolbar / CommandBar */
+        if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight && mousePos.x < cxClient &&
             mousePos.y < cyClient) {
             /* Convert to map coordinates */
             ScreenToMap(mousePos.x, mousePos.y, &mapX, &mapY, xOffset, yOffset);
@@ -5331,7 +5408,6 @@ void openCityDialog(HWND hwnd) {
 
 HMENU createMainMenu(void) {
     HMENU hMainMenu;
-    HMENU hViewMenu;
 
     hMainMenu = CreateMenu();
 
@@ -5404,19 +5480,15 @@ HMENU createMainMenu(void) {
     /* Create View menu */
     hViewMenu = CreatePopupMenu();
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_INFOWINDOW, "&Info Window");
-    /* Check it by default since the info window is shown on startup */
-    CheckMenuItem(hViewMenu, IDM_VIEW_INFOWINDOW, MF_CHECKED);
+    CheckMenuItem(hViewMenu, IDM_VIEW_INFOWINDOW, MF_UNCHECKED);
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_LOGWINDOW, "&Message Log");
-    /* Check it by default since the log window is shown on startup */
-    CheckMenuItem(hViewMenu, IDM_VIEW_LOGWINDOW, MF_CHECKED);
+    CheckMenuItem(hViewMenu, IDM_VIEW_LOGWINDOW, MF_UNCHECKED);
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_MINIMAPWINDOW, "&Minimap Window");
-    /* Check it by default since the minimap window is shown on startup */
-    CheckMenuItem(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_CHECKED);
+    CheckMenuItem(hViewMenu, IDM_VIEW_MINIMAPWINDOW, MF_UNCHECKED);
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_BUDGET, "&Budget Window");
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_EVALUATION, "&Evaluation Window");
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_CHARTSWINDOW, "&Charts Window");
-    /* Check it by default since the charts window is shown on startup */
-    CheckMenuItem(hViewMenu, IDM_VIEW_CHARTSWINDOW, MF_CHECKED);
+    CheckMenuItem(hViewMenu, IDM_VIEW_CHARTSWINDOW, MF_UNCHECKED);
     AppendMenu(hViewMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_POWER_OVERLAY, "&Power Overlay");
     AppendMenu(hViewMenu, MF_STRING, IDM_VIEW_TILESWINDOW, "Tile &Viewer");

@@ -14,7 +14,7 @@
 #define MAX_BITMAP_SIZE (16 * 1024 * 1024)  /* 16MB limit */
 
 HANDLE LoadImageFromFile(LPCSTR filename, UINT fuLoad) {
-#if(_MSC_VER > 900)
+#if (_MSC_VER > 900) && !defined(_WIN32_WCE)
     /* Use newer LoadImage API if available */
     return LoadImage(NULL, filename, IMAGE_BITMAP, 0, 0, fuLoad);
 #else
@@ -131,7 +131,17 @@ HANDLE LoadImageFromFile(LPCSTR filename, UINT fuLoad) {
         return NULL;
     }
 
+#ifdef _WIN32_WCE
+    {
+        void *pBits = NULL;
+        hBitmap = CreateDIBSection(hdc, bmi, DIB_RGB_COLORS, &pBits, NULL, 0);
+        if (hBitmap && pBits) {
+            memcpy(pBits, bitmapBits, bmiHeader.biSizeImage);
+        }
+    }
+#else
     hBitmap = CreateDIBitmap(hdc, &bmiHeader, CBM_INIT, bitmapBits, bmi, DIB_RGB_COLORS);
+#endif
 
     free(bitmapBits);
     free(colorTable);
@@ -184,8 +194,10 @@ HBITMAP convertTo8Bit(HBITMAP hSrcBitmap, HDC hdc, HPALETTE hSystemPalette) {
             hOldSrc = SelectObject(hdcSrc, hSrcBitmap);
             hOldDest = SelectObject(hdcDest, hDestBitmap);
             
+#ifndef _WIN32_WCE
             /* Set stretch mode for better quality */
             SetStretchBltMode(hdcDest, COLORONCOLOR);
+#endif
             
             /* Copy with palette conversion using StretchBlt */
             if (!StretchBlt(hdcDest, 0, 0, bm.bmWidth, bm.bmHeight, 
