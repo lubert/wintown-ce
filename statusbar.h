@@ -7,7 +7,9 @@
 
 #include <windows.h>
 
-#define STATUSBAR_HEIGHT 20
+#define STATUSBAR_ROW_HEIGHT 20
+#define STATUSBAR_NUM_ROWS   2
+#define STATUSBAR_HEIGHT     (STATUSBAR_ROW_HEIGHT * STATUSBAR_NUM_ROWS)
 
 /* Initialize and create status bar window */
 HWND CreateStatusBar(HWND hwndParent, int x, int y, int width, int height);

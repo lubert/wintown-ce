@@ -1494,87 +1494,6 @@ LRESULT CALLBACK ToolbarProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
         }
 
 
-        /* Show current tool information if a tool is active */
-        if (isToolActive) {
-            const char *toolName;
-            int toolCost;
-            char buffer[256];
-            int textY = 5; /* Anchor to top of toolbar */
-
-            /* Get the tool name */
-            switch (GetCurrentTool()) {
-            case bulldozerState:
-                toolName = "Bulldozer";
-                break;
-            case roadState:
-                toolName = "Road";
-                break;
-            case railState:
-                toolName = "Rail";
-                break;
-            case wireState:
-                toolName = "Wire";
-                break;
-            case parkState:
-                toolName = "Park";
-                break;
-            case residentialState:
-                toolName = "Residential Zone";
-                break;
-            case commercialState:
-                toolName = "Commercial Zone";
-                break;
-            case industrialState:
-                toolName = "Industrial Zone";
-                break;
-            case fireState:
-                toolName = "Fire Station";
-                break;
-            case policeState:
-                toolName = "Police Station";
-                break;
-            case stadiumState:
-                toolName = "Stadium";
-                break;
-            case seaportState:
-                toolName = "Seaport";
-                break;
-            case powerState:
-                toolName = "Coal Power Plant";
-                break;
-            case nuclearState:
-                toolName = "Nuclear Power Plant";
-                break;
-            case airportState:
-                toolName = "Airport";
-                break;
-            case queryState:
-                toolName = "Query";
-                break;
-            default:
-                toolName = "Unknown Tool";
-                break;
-            }
-
-            toolCost = GetToolCost();
-
-            /* Show the tool name and cost in the toolbar */
-            SetTextColor(hdc, RGB(0, 0, 0)); /* Black text */
-            SetBkMode(hdc, TRANSPARENT);
-            wsprintf(buffer, "Tool: %s", toolName);
-            TextOut(hdc, 10, textY, buffer, lstrlen(buffer));
-
-            if (toolCost > 0) {
-                {
-                    extern char *FormatNumber(long n, char *buf);
-                    char numBuf[32];
-                    FormatNumber((long)toolCost, numBuf);
-                    wsprintf(buffer, "Cost: $%s", numBuf);
-                }
-                TextOut(hdc, 10, textY + 15, buffer, lstrlen(buffer));
-            }
-        }
-
         EndPaint(hwnd, &ps);
         return 0;
     }
@@ -1903,7 +1822,49 @@ void SelectTool(int toolType) {
         toolCost = 0;
         break;
     }
+
+    /* Update docked status bar so active tool and cost are immediately shown */
+    UpdateStatusBar();
 }
+
+/* Get display string for currently selected tool and its cost */
+void GetCurrentToolInfo(char *buf, int maxLen) {
+    const char *toolName;
+    int cost;
+    char numBuf[32];
+    extern char *FormatNumber(long n, char *buf);
+
+    if (!buf || maxLen <= 0) return;
+
+    switch (GetCurrentTool()) {
+    case bulldozerState:   toolName = "Bulldozer"; break;
+    case roadState:        toolName = "Road"; break;
+    case railState:        toolName = "Rail"; break;
+    case wireState:        toolName = "Wire"; break;
+    case parkState:        toolName = "Park"; break;
+    case residentialState: toolName = "Residential"; break;
+    case commercialState:  toolName = "Commercial"; break;
+    case industrialState:  toolName = "Industrial"; break;
+    case fireState:        toolName = "Fire Station"; break;
+    case policeState:      toolName = "Police Station"; break;
+    case stadiumState:     toolName = "Stadium"; break;
+    case seaportState:     toolName = "Seaport"; break;
+    case powerState:       toolName = "Coal Power"; break;
+    case nuclearState:     toolName = "Nuclear Power"; break;
+    case airportState:     toolName = "Airport"; break;
+    case queryState:       toolName = "Query"; break;
+    default:               toolName = "None"; break;
+    }
+
+    cost = GetToolCost();
+    if (cost > 0) {
+        FormatNumber((long)cost, numBuf);
+        wsprintf(buf, "%s: $%s", toolName, numBuf);
+    } else {
+        wsprintf(buf, "%s", toolName);
+    }
+}
+
 
 /* Check if we have enough funds for the current tool */
 int CheckFunds(int cost) {

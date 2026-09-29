@@ -953,6 +953,16 @@ void CenterMapOnTile(int tileX, int tileY) {
     InvalidateRect(hwndMain, NULL, FALSE);
 }
 
+void GetCurrentCenterTile(int *tileX, int *tileY) {
+    int vw = cxClient - toolbarWidth - sbWidth;
+    int vh = cyClient - TOP_OFFSET - sbHeight;
+    if (vw <= 0) vw = 16;
+    if (vh <= 0) vh = 16;
+    if (tileX) *tileX = (xOffset + vw / 2) / TILE_SIZE;
+    if (tileY) *tileY = (yOffset + vh / 2) / TILE_SIZE;
+}
+
+
 char *FormatNumber(long n, char *buf) {
     char tmp[32];
     int len, i, j, neg;

@@ -59,6 +59,7 @@ void ScreenToMap(int screenX, int screenY, int *mapX, int *mapY, int xOffset, in
 int HandleToolMouse(int mouseX, int mouseY, int xOffset, int yOffset);
 void DrawToolHover(HDC hdc, int mapX, int mapY, int toolType, int xOffset, int yOffset);
 void UpdateToolbar(void);
+void GetCurrentToolInfo(char *buf, int maxLen);
 
 /* Individual tool functions */
 int DoBulldozer(int mapX, int mapY);
