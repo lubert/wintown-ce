@@ -7,7 +7,7 @@ LOCAL_OBJS = anim.o animtab.o assets.o budget.o charts.o disastr.o eval.o gdifix
 SIM_OBJS = s_disast.o s_eval.o s_gen.o s_power.o s_scan.o s_sim.o s_traf.o s_zone.o
 OBJS = $(LOCAL_OBJS) $(SIM_OBJS)
 
-all: wintown.exe
+all: wintown_win32.exe
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
@@ -21,8 +21,8 @@ s_%.o: micropolis/src/sim/s_%.c
 wintown_res.o: wintown.rc
 	$(RC) -I. wintown.rc -o wintown_res.o
 
-wintown.exe: $(OBJS) wintown_res.o
-	$(CC) -o wintown.exe $(OBJS) wintown_res.o $(LIBS) -mwindows
+wintown_win32.exe: $(OBJS) wintown_res.o
+	$(CC) -o wintown_win32.exe $(OBJS) wintown_res.o $(LIBS) -mwindows
 
 clean:
-	del /q /f *.o wintown.exe
+	del /q /f *.o wintown_win32.exe
