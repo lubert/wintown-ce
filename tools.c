@@ -12,6 +12,7 @@
 #include "gdifix.h"
 #include "arch.h"
 #include "assets.h"
+#include "statusbar.h"
 
 /* External reference to the toolbar width */
 extern int toolbarWidth;
@@ -2705,9 +2706,9 @@ void ScreenToMap(int screenX, int screenY, int *mapX, int *mapY, int xOffset, in
      */
     *mapX = (screenX + xOffset - toolbarWidth) / TILE_SIZE;
 #ifdef _WIN32_WCE
-    *mapY = (screenY + yOffset - cbHeight) / TILE_SIZE;
+    *mapY = (screenY + yOffset - cbHeight - STATUSBAR_HEIGHT) / TILE_SIZE;
 #else
-    *mapY = (screenY + yOffset) / TILE_SIZE;
+    *mapY = (screenY + yOffset - STATUSBAR_HEIGHT) / TILE_SIZE;
 #endif
 }
 

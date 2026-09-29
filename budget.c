@@ -8,6 +8,7 @@
 /* External log functions */
 extern void addGameLog(const char *format, ...);
 extern void addDebugLog(const char *format, ...);
+extern void UpdateStatusBar(void);
 
 /* Budget values */
 float RoadPercent = 1.0f;   /* Road funding percentage (0.0-1.0) */
@@ -61,6 +62,8 @@ void Spend(QUAD amount) {
     if (TotalFunds < 0) {
         ShowNotification(NOTIF_CITY_BROKE);
     }
+
+    UpdateStatusBar();
 
     /* Log major spending/income */
     if (amount > 10000 || amount < -10000) {

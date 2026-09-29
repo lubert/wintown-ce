@@ -116,4 +116,9 @@ NotificationType GetNotificationType(int notificationId);
 void addGameLogWithDialog(int showDialog, const char *format, ...);
 void addGameLogAtLocation(int x, int y, const char *format, ...);
 
+/* Status bar notice ticker interface */
+const char* GetCurrentNoticeMessage(void);
+void SetCurrentNoticeMessage(const char *msg);
+int GetNoticeLocation(int *x, int *y);
+
 #endif /* _NOTIFICATIONS_H */

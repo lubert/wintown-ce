@@ -6,7 +6,7 @@ set CFLAGS=-c -O2 /QMR4100 /QMNoDivCheck /GF /Gy -D_WIN32_WCE=211 -DUNDER_CE=211
 set LFLAGS=/subsystem:windowsce,2.11 /machine:MIPS /entry:WinMainCRTStartup /nodefaultlib /opt:ref /libpath:C:\Users\Lu\src\toolchain\wce211_mips\sdk\Emulation_Libs\mips
 
 echo Compiling WinTown C source files...
-clmips.exe %CFLAGS% anim.c animtab.c assets.c budget.c cecompat.c charts.c disastr.c eval.c gdifix.c main.c mapgen.c newgame.c notify.c scenario.c sim.c sprite.c tiles.c tools.c
+clmips.exe %CFLAGS% anim.c animtab.c assets.c budget.c cecompat.c charts.c disastr.c eval.c gdifix.c main.c mapgen.c newgame.c notify.c scenario.c sim.c sprite.c statusbar.c tiles.c tools.c
 if errorlevel 1 goto error
 
 echo Compiling Micropolis sim modules...
@@ -20,7 +20,7 @@ rc.exe -r -d_WIN32_WCE=211 -dUNDER_CE=211 -IC:\Users\Lu\src\toolchain\wce211_mip
 if errorlevel 1 goto error
 
 echo Linking wintown_mips.exe...
-link.exe %LFLAGS% /out:wintown_mips.exe anim.obj animtab.obj assets.obj budget.obj cecompat.obj charts.obj disastr.obj eval.obj gdifix.obj main.obj mapgen.obj newgame.obj notify.obj scenario.obj sim.obj sprite.obj tiles.obj tools.obj s_disast.obj s_eval.obj s_gen.obj s_power.obj s_scan.obj s_sim.obj s_traf.obj s_zone.obj wintown.res coredll.lib commctrl.lib corelibc.lib
+link.exe %LFLAGS% /out:wintown_mips.exe anim.obj animtab.obj assets.obj budget.obj cecompat.obj charts.obj disastr.obj eval.obj gdifix.obj main.obj mapgen.obj newgame.obj notify.obj scenario.obj sim.obj sprite.obj statusbar.obj tiles.obj tools.obj s_disast.obj s_eval.obj s_gen.obj s_power.obj s_scan.obj s_sim.obj s_traf.obj s_zone.obj wintown.res coredll.lib commctrl.lib corelibc.lib
 if errorlevel 1 goto error
 
 echo.

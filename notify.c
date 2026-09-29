@@ -12,6 +12,7 @@
 extern HWND hwndMain;
 extern void addGameLog(const char *format, ...);
 extern void addDebugLog(const char *format, ...);
+extern void UpdateStatusBar(void);
 
 /* Message system variables - like original WiNTown */
 int MessagePort = 0;
@@ -19,6 +20,32 @@ int MesX = 0, MesY = 0;
 int MesNum = 0;
 int LastPicNum = 0;
 DWORD LastMesTime = 0;
+
+/* Notice ticker state for status bar */
+static char currentNoticeText[256] = "All systems normal";
+
+const char *GetCurrentNoticeMessage(void) {
+    if (currentNoticeText[0] != '\0')
+        return currentNoticeText;
+    return "All systems normal";
+}
+
+void SetCurrentNoticeMessage(const char *msg) {
+    if (msg && msg[0] != '\0') {
+        strncpy(currentNoticeText, msg, sizeof(currentNoticeText) - 1);
+        currentNoticeText[sizeof(currentNoticeText) - 1] = '\0';
+        UpdateStatusBar();
+    }
+}
+
+int GetNoticeLocation(int *x, int *y) {
+    if (MesX > 0 && MesY > 0) {
+        if (x) *x = MesX;
+        if (y) *y = MesY;
+        return 1;
+    }
+    return 0;
+}
 
 /* External simulation variables - declared in sim.h */
 extern int TotalZPop;
@@ -214,6 +241,8 @@ void ClearMes(void) {
     MesX = 0;
     MesY = 0;
     LastPicNum = 0;
+    currentNoticeText[0] = '\0';
+    UpdateStatusBar();
     addDebugLog("ClearMes: Message system cleared");
 }
 
@@ -299,6 +328,7 @@ void doMessage(void) {
             default: sprintf(messageStr, "City Message %d", MesNum); break;
         }
 
+        SetCurrentNoticeMessage(messageStr);
         addGameLog("CITY: %s", messageStr);
 
     } else {
@@ -333,6 +363,7 @@ void doMessage(void) {
             strcat(messageStr, locStr);
         }
 
+        SetCurrentNoticeMessage(messageStr);
         addGameLog("ALERT: %s", messageStr);
 
         /* AutoGo: auto-scroll to event location */
