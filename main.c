@@ -549,6 +549,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     int mainWindowX, mainWindowY;
     FILE *debugFile;
     char debugLogPath[MAX_PATH];
+    NewGameConfig startupConfig;
 
 	GetModuleFileName(NULL, progPathName, MAX_PATH);
 	MyPathRemoveFileSpecA(progPathName);
@@ -645,6 +646,14 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         return 0;
     }
 
+    /* Show new game dialog on startup first; defer creating the main window until config is selected */
+    addGameLog("About to show initial new game dialog before main window...");
+    if (!showNewGameDialog(NULL, &startupConfig)) {
+        addGameLog("User cancelled initial new game dialog - exiting application");
+        return 0;
+    }
+    addGameLog("User selected initial game config: type=%d, difficulty=%d", startupConfig.gameType, startupConfig.difficulty);
+
 #ifdef _WIN32_WCE
     {
         RECT rcWork;
@@ -655,7 +664,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             screenHeight = rcWork.bottom - rcWork.top;
         }
         hwndMain = CreateWindowEx(0, "WiNTown", "WiNTown",
-                                  WS_VISIBLE, rcWork.left, rcWork.top, screenWidth, screenHeight,
+                                  WS_CLIPCHILDREN, rcWork.left, rcWork.top, screenWidth, screenHeight,
                                   NULL, NULL, hInstance, NULL);
     }
     if (hwndMain) {
@@ -810,31 +819,41 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     /* Initialize chart system */
     InitChartSystem();
     
+    /* Initialize game using selected startup configuration */
+    if (initNewGame(&startupConfig)) {
+        addGameLog("New game started successfully");
+        if (startupConfig.gameType == NEWGAME_NEW_CITY) {
+            SetGameLevel(startupConfig.difficulty);
+        }
+    } else {
+        addGameLog("Failed to initialize selected game - creating empty map");
+        createNewMap(hwndMain);
+    }
+    SetGameSpeed(SPEED_MEDIUM);
+
+    /* Update window title with city name */
+    if (cityFileName[0] != '\0') {
+        char windowTitle[MAX_PATH];
+        char *baseName = cityFileName;
+        char *dot;
+        if (strrchr(baseName, '\\')) {
+            baseName = strrchr(baseName, '\\') + 1;
+        }
+        if (strrchr(baseName, '/')) {
+            baseName = strrchr(baseName, '/') + 1;
+        }
+        lstrcpy(windowTitle, "WiNTown - ");
+        lstrcat(windowTitle, baseName);
+        dot = strrchr(windowTitle, '.');
+        if (dot) {
+            *dot = '\0';
+        }
+        SetWindowText(hwndMain, windowTitle);
+    }
+
+    InvalidateCityView();
     ShowWindow(hwndMain, nCmdShow);
     UpdateWindow(hwndMain);
-    
-    /* Show new game dialog on startup */
-    {
-        NewGameConfig config;
-        addGameLog("About to show new game dialog...");
-        if (showNewGameDialog(hwndMain, &config)) {
-            addGameLog("User selected new game option: type=%d, difficulty=%d", config.gameType, config.difficulty);
-            if (initNewGame(&config)) {
-                addGameLog("New game started successfully");
-                SetGameSpeed(SPEED_MEDIUM);
-                InvalidateCityView();
-                InvalidateRect(hwndMain, NULL, TRUE);
-            } else {
-                addGameLog("Failed to initialize new game");
-                /* Fall back to creating empty map */
-                createNewMap(hwndMain);
-            }
-        } else {
-            addGameLog("User cancelled new game dialog - creating empty map");
-            /* User cancelled - create empty map as fallback */
-            createNewMap(hwndMain);
-        }
-    }
 
     while (GetMessage(&msg, NULL, 0, 0) > 0) {
         TranslateMessage(&msg);

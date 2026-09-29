@@ -931,6 +931,17 @@ int generateNewCityWithTerrain(char *cityName, int difficulty, int mapType, int 
               (difficulty == DIFFICULTY_MEDIUM) ? "Medium" : "Hard",
               TotalFunds);
     
+    {
+        extern char cityFileName[MAX_PATH];
+        extern HWND hwndMain;
+        lstrcpy(cityFileName, cityName);
+        if (hwndMain) {
+            char windowTitle[MAX_PATH];
+            wsprintf(windowTitle, "WiNTown - %s", cityName);
+            SetWindowText(hwndMain, windowTitle);
+        }
+    }
+    
     return 1;
 }
 
