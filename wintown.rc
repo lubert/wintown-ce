@@ -36,6 +36,7 @@ IDI_WINTOWN             ICON    DISCARDABLE     "wintown.ico"
 //
 
 IDR_TILESET_CLASSIC     RCDATA  MOVEABLE PURE   "tilesets\\classic.bmp"
+#ifdef ENABLE_EXTRA_TILESETS
 IDR_TILESET_CLASSIC95   RCDATA  MOVEABLE PURE   "tilesets\\classic95.bmp"
 IDR_TILESET_DEFAULT     RCDATA  MOVEABLE PURE   "tilesets\\default.bmp"
 IDR_TILESET_ANCIENTASIA RCDATA  MOVEABLE PURE   "tilesets\\ancientasia.bmp"
@@ -45,6 +46,7 @@ IDR_TILESET_FUTUREUSA   RCDATA  MOVEABLE PURE   "tilesets\\futureusa.bmp"
 IDR_TILESET_MEDIEVALTIMES RCDATA  MOVEABLE PURE   "tilesets\\medievaltimes.bmp"
 IDR_TILESET_MOONCOLONY  RCDATA  MOVEABLE PURE   "tilesets\\mooncolony.bmp"
 IDR_TILESET_WILDWEST    RCDATA  MOVEABLE PURE   "tilesets\\wildwest.bmp"
+#endif
 IDR_CITY_BADNEWS        RCDATA  MOVEABLE PURE   "cities\\badnews.cty"
 IDR_CITY_BRUCE          RCDATA  MOVEABLE PURE   "cities\\bruce.cty"
 IDR_CITY_DEADWOOD       RCDATA  MOVEABLE PURE   "cities\\deadwood.cty"
@@ -222,10 +224,12 @@ BEGIN
         MENUITEM "&Boston (2010): Nuclear Meltdown",    4007
         MENUITEM "&Rio de Janeiro (2047): Flooding",    4008
     END
+#ifdef ENABLE_EXTRA_TILESETS
     POPUP "&Tileset"
     BEGIN
         MENUITEM "Classic",                 2000
     END
+#endif
     POPUP "S&pawn"
     BEGIN
         MENUITEM "&Helicopter",             6001

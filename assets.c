@@ -10,6 +10,7 @@ extern int loadFile(char *filename);
 
 static GameAssetInfo tilesetAssets[] = {
     { IDR_TILESET_CLASSIC, "classic.bmp", "Classic Tileset" },
+#ifdef ENABLE_EXTRA_TILESETS
     { IDR_TILESET_CLASSIC95, "classic95.bmp", "Classic 95 Tileset" },
     { IDR_TILESET_DEFAULT, "default.bmp", "Default Tileset" },
     { IDR_TILESET_ANCIENTASIA, "ancientasia.bmp", "Ancient Asia Tileset" },
@@ -19,6 +20,7 @@ static GameAssetInfo tilesetAssets[] = {
     { IDR_TILESET_MEDIEVALTIMES, "medievaltimes.bmp", "Medieval Times Tileset" },
     { IDR_TILESET_MOONCOLONY, "mooncolony.bmp", "Moon Colony Tileset" },
     { IDR_TILESET_WILDWEST, "wildwest.bmp", "Wild West Tileset" },
+#endif
     { 0, NULL, NULL }
 };
 
@@ -309,6 +311,12 @@ int findTilesetResourceByName(const char* filename) {
         addDebugLog("findTilesetResourceByName: Checking '%s' against '%s'", filename, tilesetAssets[i].filename);
         if (strcmp(tilesetAssets[i].filename, filename) == 0) {
             addDebugLog("findTilesetResourceByName: Found match! Resource ID = %d", tilesetAssets[i].resourceId);
+            return tilesetAssets[i].resourceId;
+        }
+        /* Also allow matching base name without .bmp extension */
+        if (strncmp(tilesetAssets[i].filename, filename, strlen(filename)) == 0 &&
+            strcmp(tilesetAssets[i].filename + strlen(filename), ".bmp") == 0) {
+            addDebugLog("findTilesetResourceByName: Found match (extension omitted)! Resource ID = %d", tilesetAssets[i].resourceId);
             return tilesetAssets[i].resourceId;
         }
     }

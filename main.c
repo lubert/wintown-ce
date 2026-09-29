@@ -272,15 +272,21 @@ HMENU GetAppViewMenu(void) {
     }
 #ifdef _WIN32_WCE
     if (g_hMainMenu) {
-        hViewMenu = GetSubMenu(g_hMainMenu, 6);
-        return hViewMenu;
+        int count = GetMenuItemCount(g_hMainMenu);
+        if (count > 0) {
+            hViewMenu = GetSubMenu(g_hMainMenu, count - 1);
+            return hViewMenu;
+        }
     }
 #endif
     if (hwndMain) {
         HMENU h = GetMenu(hwndMain);
         if (h) {
-            hViewMenu = GetSubMenu(h, 6);
-            return hViewMenu;
+            int count = GetMenuItemCount(h);
+            if (count > 0) {
+                hViewMenu = GetSubMenu(h, count - 1);
+                return hViewMenu;
+            }
         }
     }
     return NULL;
@@ -660,16 +666,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             cbHeight = CommandBar_Height(g_hwndCB);
             g_hMainMenu = CommandBar_GetMenu(g_hwndCB, 0);
             if (g_hMainMenu) {
-                hFileMenu = GetSubMenu(g_hMainMenu, 0);
-                hScenarioMenu = GetSubMenu(g_hMainMenu, 1);
-                hTilesetMenu = GetSubMenu(g_hMainMenu, 2);
-                hSpawnMenu = GetSubMenu(g_hMainMenu, 3);
-                hDisasterMenu = GetSubMenu(g_hMainMenu, 4);
-                hSettingsMenu = GetSubMenu(g_hMainMenu, 5);
-                hViewMenu = GetSubMenu(g_hMainMenu, 6);
+                int menuIdx = 0;
+                hFileMenu = GetSubMenu(g_hMainMenu, menuIdx++);
+                hScenarioMenu = GetSubMenu(g_hMainMenu, menuIdx++);
+#ifdef ENABLE_EXTRA_TILESETS
+                hTilesetMenu = GetSubMenu(g_hMainMenu, menuIdx++);
                 if (hTilesetMenu) {
                     populateTilesetMenu(hTilesetMenu);
                 }
+#else
+                hTilesetMenu = NULL;
+#endif
+                hSpawnMenu = GetSubMenu(g_hMainMenu, menuIdx++);
+                hDisasterMenu = GetSubMenu(g_hMainMenu, menuIdx++);
+                hSettingsMenu = GetSubMenu(g_hMainMenu, menuIdx++);
+                hViewMenu = GetSubMenu(g_hMainMenu, menuIdx++);
                 CheckMenuItem(hSettingsMenu, IDM_SIM_MEDIUM, MF_CHECKED);
                 CheckMenuItem(hSettingsMenu, IDM_SETTINGS_LEVEL_EASY, MF_CHECKED);
                 CheckMenuItem(hSettingsMenu, IDM_SETTINGS_AUTO_BUDGET, AutoBudget ? MF_CHECKED : MF_UNCHECKED);
@@ -691,7 +702,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         wr.right = 640;
         wr.bottom = 480;
         AdjustWindowRectEx(&wr, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, TRUE, WS_EX_CLIENTEDGE);
-        hwndMain = CreateWindowEx(WS_EX_CLIENTEDGE, "WiNTown", "WiNTown - Tileset: classic",
+        hwndMain = CreateWindowEx(WS_EX_CLIENTEDGE, "WiNTown", "WiNTown",
                                   WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN, CW_USEDEFAULT, CW_USEDEFAULT,
                                   wr.right - wr.left, wr.bottom - wr.top,
                                   NULL, hMenu, hInstance, NULL);
@@ -2844,7 +2855,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
 
         default:
-            if (LOWORD(wParam) >= IDM_TILESET_BASE && LOWORD(wParam) < IDM_TILESET_MAX) {
+#ifdef ENABLE_EXTRA_TILESETS
+            if (hTilesetMenu && LOWORD(wParam) >= IDM_TILESET_BASE && LOWORD(wParam) < IDM_TILESET_MAX) {
                 int index;
                 char tilesetName[MAX_PATH];
 
@@ -2860,6 +2872,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 }
                 return 0;
             }
+#endif
+            break;
         }
         return 0;
 
@@ -3537,21 +3551,14 @@ void initializeGraphics(HWND hwnd) {
     /* Fill with black background */
     FillRect(hdcBuffer, &rect, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
-    /* Use default.bmp tileset by default */
-    strcpy(currentTileset, "default");
+    /* Use classic.bmp tileset by default */
+    strcpy(currentTileset, "classic");
     wsprintf(tilePath, "%s.bmp", currentTileset);
-    wsprintf(errorMsg,"LOADING TILESET %s FROM RESOURCES\n",tilePath);
+    wsprintf(errorMsg, "LOADING TILESET %s FROM RESOURCES\n", tilePath);
     OutputDebugString(errorMsg);
     /* Load the tileset from embedded resources */
     if (!loadTileset(tilePath)) {
-        OutputDebugString("Failed to load default tileset! Trying classic as fallback...");
-        /* Fallback to classic if default is not available */
-        strcpy(currentTileset, "classic");
-        wsprintf(tilePath, "%s.bmp", currentTileset);
-        
-        if (!loadTileset(tilePath)) {
-            OutputDebugString("Failed to load classic tileset too!");
-        }
+        OutputDebugString("Failed to load classic tileset!\n");
     }
 
     ReleaseDC(hwnd, hdc);
@@ -3668,6 +3675,13 @@ int changeTileset(HWND hwnd, const char *tilesetName) {
     char tilesetFilename[MAX_PATH];
     int resourceId;
 
+#ifndef ENABLE_EXTRA_TILESETS
+    /* When extra tilesets are disabled, classic is the only tileset */
+    if (strcmp(tilesetName, "classic") == 0 && hbmTiles != NULL) {
+        return 1;
+    }
+#endif
+
     wsprintf(tilesetFilename, "%s.bmp", tilesetName);
 
     if (hdcTiles) {
@@ -3697,24 +3711,24 @@ int changeTileset(HWND hwnd, const char *tilesetName) {
     }
 
     if (hbmTiles == NULL) {
-        /* Try fallback to default if requested tileset isn't 'default' */
-        if (strcmp(tilesetName, "default") != 0) {
-            wsprintf(errorMsg, "Trying to fallback to default tileset");
+        /* Try fallback to classic if requested tileset isn't 'classic' */
+        if (strcmp(tilesetName, "classic") != 0) {
+            wsprintf(errorMsg, "Trying to fallback to classic tileset");
             OutputDebugString(errorMsg);
             
-            resourceId = findTilesetResourceByName("default.bmp");
+            resourceId = findTilesetResourceByName("classic.bmp");
             if (resourceId != 0) {
                 hbmTiles = loadTilesetFromResource(resourceId);
             }
                               
             if (hbmTiles == NULL) {
-                /* If default also fails, give up */
-                wsprintf(errorMsg, "Failed to load default fallback from resources");
+                /* If classic also fails, give up */
+                wsprintf(errorMsg, "Failed to load classic fallback from resources");
                 OutputDebugString(errorMsg);
                 return 0;
             }
         } else {
-            /* If we're already trying to load default and it failed, give up */
+            /* If we're already trying to load classic and it failed, give up */
             return 0;
         }
     }
@@ -3762,8 +3776,10 @@ int changeTileset(HWND hwnd, const char *tilesetName) {
     /* Update current tileset name */
     strcpy(currentTileset, tilesetName);
 
+#ifdef ENABLE_EXTRA_TILESETS
     wsprintf(windowTitle, "WiNTown - Tileset: %s", currentTileset);
     SetWindowText(hwnd, windowTitle);
+#endif
 
     /* Force a full redraw */
     InvalidateCityView();
@@ -5597,8 +5613,12 @@ HMENU createMainMenu(void) {
     AppendMenu(hFileMenu, MF_SEPARATOR, 0, NULL);
     AppendMenu(hFileMenu, MF_STRING, IDM_FILE_EXIT, "E&xit");
 
+#ifdef ENABLE_EXTRA_TILESETS
     hTilesetMenu = CreatePopupMenu();
     populateTilesetMenu(hTilesetMenu);
+#else
+    hTilesetMenu = NULL;
+#endif
 
     /* Speed menu moved to Settings menu */
 
@@ -5728,7 +5748,9 @@ HMENU createMainMenu(void) {
 
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hFileMenu, "&File");
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hScenarioMenu, "&Scenarios");
+#ifdef ENABLE_EXTRA_TILESETS
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hTilesetMenu, "&Tileset");
+#endif
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hSpawnMenu, "S&pawn");
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hDisasterMenu, "&Disasters");
     AppendMenu(hMainMenu, MF_POPUP, (UINT)hSettingsMenu, "Se&ttings");
@@ -5917,8 +5939,10 @@ void createNewMap(HWND hwnd) {
     /* Clear city filename since this is a new map */
     cityFileName[0] = '\0';
     
-    /* Set default tileset for new maps */
-    changeTileset(hwnd, "default");
+    /* Default to classic tileset; avoid reloading if already loaded */
+    if (strcmp(currentTileset, "classic") != 0 || hbmTiles == NULL) {
+        changeTileset(hwnd, "classic");
+    }
     
     /* Update window title (override the tileset title) */
     SetWindowText(hwnd, "WiNTown - New City");
