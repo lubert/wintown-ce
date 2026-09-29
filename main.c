@@ -245,6 +245,13 @@ int cbHeight = 0;
 
 int AutoGo = 1; /* Auto-scroll to event locations */
 
+/* Scrollbar controls framing the city map viewport */
+static HWND hwndHScroll = NULL;
+static HWND hwndVScroll = NULL;
+static int sbWidth = 16;
+static int sbHeight = 16;
+void UpdateScrollBars(void);
+
 static BOOL isMouseDown = FALSE; /* Used for map dragging */
 static int lastMouseX = 0;
 static int lastMouseY = 0;
@@ -883,22 +890,64 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return (int)msg.wParam;
 }
 
+void UpdateScrollBars(void) {
+    int viewWidth, viewHeight;
+    SCROLLINFO si;
+
+    if (!hwndHScroll || !hwndVScroll || !IsWindow(hwndHScroll) || !IsWindow(hwndVScroll))
+        return;
+
+    viewWidth = cxClient - toolbarWidth - sbWidth;
+    viewHeight = cyClient - cbHeight - sbHeight;
+    if (viewWidth < 0) viewWidth = 0;
+    if (viewHeight < 0) viewHeight = 0;
+
+    ZeroMemory(&si, sizeof(si));
+    si.cbSize = sizeof(si);
+    si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+
+    /* Horizontal scrollbar */
+    si.nMin = 0;
+    si.nMax = WORLD_X * TILE_SIZE - 1;
+    si.nPage = viewWidth;
+    si.nPos = xOffset;
+    SetScrollInfo(hwndHScroll, SB_CTL, &si, TRUE);
+
+    /* Vertical scrollbar */
+    si.nMin = 0;
+    si.nMax = WORLD_Y * TILE_SIZE - 1;
+    si.nPage = viewHeight;
+    si.nPos = yOffset;
+    SetScrollInfo(hwndVScroll, SB_CTL, &si, TRUE);
+}
+
 void CenterMapOnTile(int tileX, int tileY) {
+    int viewWidth = cxClient - toolbarWidth - sbWidth;
+    int viewHeight = cyClient - cbHeight - sbHeight;
+    int max_x, max_y;
+
+    if (viewWidth < 0) viewWidth = 0;
+    if (viewHeight < 0) viewHeight = 0;
+    max_x = WORLD_X * TILE_SIZE - viewWidth;
+    max_y = WORLD_Y * TILE_SIZE - viewHeight;
+    if (max_x < 0) max_x = 0;
+    if (max_y < 0) max_y = 0;
+
     if (tileX < 0) tileX = 0;
     if (tileY < 0) tileY = 0;
     if (tileX >= WORLD_X) tileX = WORLD_X - 1;
     if (tileY >= WORLD_Y) tileY = WORLD_Y - 1;
 
-    xOffset = (tileX * TILE_SIZE) - ((cxClient - toolbarWidth) / 2);
-    yOffset = (tileY * TILE_SIZE) - (cyClient / 2);
+    xOffset = (tileX * TILE_SIZE) - (viewWidth / 2);
+    yOffset = (tileY * TILE_SIZE) - (viewHeight / 2);
 
     if (xOffset < 0) xOffset = 0;
     if (yOffset < 0) yOffset = 0;
-    if (xOffset > WORLD_X * TILE_SIZE - (cxClient - toolbarWidth))
-        xOffset = WORLD_X * TILE_SIZE - (cxClient - toolbarWidth);
-    if (yOffset > WORLD_Y * TILE_SIZE - cyClient)
-        yOffset = WORLD_Y * TILE_SIZE - cyClient;
+    if (xOffset > max_x) xOffset = max_x;
+    if (yOffset > max_y) yOffset = max_y;
 
+    UpdateScrollBars();
+    InvalidateCityView();
     InvalidateRect(hwndMain, NULL, FALSE);
 }
 
@@ -1665,8 +1714,10 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             /* Calculate viewport position in minimap coordinates */
             viewX = mapX + (xOffset / TILE_SIZE) * MINIMAP_SCALE;
             viewY = mapY + (yOffset / TILE_SIZE) * MINIMAP_SCALE;
-            viewW = ((cxClient - toolbarWidth) / TILE_SIZE) * MINIMAP_SCALE;
-            viewH = (cyClient / TILE_SIZE) * MINIMAP_SCALE;
+            viewW = ((cxClient - toolbarWidth - sbWidth) / TILE_SIZE) * MINIMAP_SCALE;
+            viewH = ((cyClient - cbHeight - sbHeight) / TILE_SIZE) * MINIMAP_SCALE;
+            if (viewW < 1) viewW = 1;
+            if (viewH < 1) viewH = 1;
 
             /* Draw white outline */
             hPen = CreatePen(PS_SOLID, 2, RGB(255, 255, 255));
@@ -1749,23 +1800,7 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             /* Pan to clicked location */
             tileX = (pt.x - mapX) / MINIMAP_SCALE;
             tileY = (pt.y - mapY) / MINIMAP_SCALE;
-            
-            /* Center view on clicked tile */
-            xOffset = (tileX * TILE_SIZE) - ((cxClient - toolbarWidth) / 2);
-            yOffset = (tileY * TILE_SIZE) - (cyClient / 2);
-            
-            /* Clamp to valid range */
-            if (xOffset < 0) xOffset = 0;
-            if (yOffset < 0) yOffset = 0;
-            if (xOffset > WORLD_X * TILE_SIZE - (cxClient - toolbarWidth)) {
-                xOffset = WORLD_X * TILE_SIZE - (cxClient - toolbarWidth);
-            }
-            if (yOffset > WORLD_Y * TILE_SIZE - cyClient) {
-                yOffset = WORLD_Y * TILE_SIZE - cyClient;
-            }
-            
-            /* Redraw main window */
-            InvalidateRect(hwndMain, NULL, FALSE);
+            CenterMapOnTile(tileX, tileY);
             InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
@@ -1794,23 +1829,7 @@ LRESULT CALLBACK minimapWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
             /* Pan to dragged location */
             tileX = (pt.x - mapX) / MINIMAP_SCALE;
             tileY = (pt.y - mapY) / MINIMAP_SCALE;
-            
-            /* Center view on dragged tile */
-            xOffset = (tileX * TILE_SIZE) - ((cxClient - toolbarWidth) / 2);
-            yOffset = (tileY * TILE_SIZE) - (cyClient / 2);
-            
-            /* Clamp to valid range */
-            if (xOffset < 0) xOffset = 0;
-            if (yOffset < 0) yOffset = 0;
-            if (xOffset > WORLD_X * TILE_SIZE - (cxClient - toolbarWidth)) {
-                xOffset = WORLD_X * TILE_SIZE - (cxClient - toolbarWidth);
-            }
-            if (yOffset > WORLD_Y * TILE_SIZE - cyClient) {
-                yOffset = WORLD_Y * TILE_SIZE - cyClient;
-            }
-            
-            /* Redraw main window */
-            InvalidateRect(hwndMain, NULL, FALSE);
+            CenterMapOnTile(tileX, tileY);
             InvalidateRect(hwnd, NULL, FALSE);
         }
         return 0;
@@ -2987,6 +3006,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         HDC hdc;
         int shakeX = 0, shakeY = 0;
         int i;
+        int viewWidth, viewHeight;
 
         hdc = BeginPaint(hwnd, &ps);
 
@@ -3020,8 +3040,23 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             }
             
             /* Copy the buffer to the screen with offset for toolbar, commandbar, and earthquake shake */
-            BitBlt(hdc, toolbarWidth + shakeX, cbHeight + shakeY, cxClient - toolbarWidth, cyClient - cbHeight, 
+            viewWidth = cxClient - toolbarWidth - sbWidth;
+            viewHeight = cyClient - cbHeight - sbHeight;
+            if (viewWidth < 0) viewWidth = 0;
+            if (viewHeight < 0) viewHeight = 0;
+
+            BitBlt(hdc, toolbarWidth + shakeX, cbHeight + shakeY, viewWidth, viewHeight, 
                    hdcBuffer, 0, 0, SRCCOPY);
+
+            /* Fill the bottom-right corner between scrollbars */
+            if (sbWidth > 0 && sbHeight > 0) {
+                RECT rcCorner;
+                rcCorner.left = cxClient - sbWidth;
+                rcCorner.top = cyClient - sbHeight;
+                rcCorner.right = cxClient;
+                rcCorner.bottom = cyClient;
+                FillRect(hdc, &rcCorner, (HBRUSH)GetStockObject(LTGRAY_BRUSH));
+            }
 
             /* Draw tool hover highlight directly on screen on top of blitted buffer (keeps hdcBuffer clean) */
             if (isToolActive) {
@@ -3030,13 +3065,13 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 ScreenToClient(hwnd, &mousePos);
 
                 if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight &&
-                    mousePos.x < cxClient && mousePos.y < cyClient) {
+                    mousePos.x < (cxClient - sbWidth) && mousePos.y < (cyClient - sbHeight)) {
                     int mapX, mapY;
                     HRGN hClipRgn;
 
                     ScreenToMap(mousePos.x, mousePos.y, &mapX, &mapY, xOffset, yOffset);
 
-                    hClipRgn = CreateRectRgn(toolbarWidth, cbHeight, cxClient, cyClient);
+                    hClipRgn = CreateRectRgn(toolbarWidth, cbHeight, cxClient - sbWidth, cyClient - sbHeight);
                     SelectClipRgn(hdc, hClipRgn);
 
                     DrawToolHover(hdc, mapX, mapY, GetCurrentTool(), 
@@ -3057,8 +3092,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int xPos = LOWORD(lParam);
         int yPos = HIWORD(lParam);
 
-        /* Skip toolbar and CommandBar areas */
-        if (xPos < toolbarWidth || yPos < cbHeight) {
+        /* Skip toolbar, CommandBar, and scrollbar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight || xPos >= (cxClient - sbWidth) || yPos >= (cyClient - sbHeight)) {
             return 0;
         }
 
@@ -3100,8 +3135,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int yPos = HIWORD(lParam);
         int mapX, mapY;
 
-        /* Skip toolbar and CommandBar areas */
-        if (xPos < toolbarWidth || yPos < cbHeight) {
+        /* Skip toolbar, CommandBar, and scrollbar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight || xPos >= (cxClient - sbWidth) || yPos >= (cyClient - sbHeight)) {
             SetCursor(LoadCursor(NULL, IDC_ARROW));
             return 0;
         }
@@ -3162,8 +3197,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 RECT updateRect;
                 updateRect.left = toolbarWidth;
                 updateRect.top = cbHeight;
-                updateRect.right = cxClient;
-                updateRect.bottom = cyClient;
+                updateRect.right = cxClient - sbWidth;
+                updateRect.bottom = cyClient - sbHeight;
                 InvalidateRect(hwnd, &updateRect, FALSE);
             }
         } else {
@@ -3191,8 +3226,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         int xPos = LOWORD(lParam);
         int yPos = HIWORD(lParam);
 
-        /* Skip toolbar and CommandBar areas */
-        if (xPos < toolbarWidth || yPos < cbHeight) {
+        /* Skip toolbar, CommandBar, and scrollbar areas */
+        if (xPos < toolbarWidth || yPos < cbHeight || xPos >= (cxClient - sbWidth) || yPos >= (cyClient - sbHeight)) {
             return 0;
         }
 
@@ -3231,6 +3266,8 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
     case WM_SIZE: {
         HWND hwndToolbarWnd;
+        int viewWidth, viewHeight;
+        int max_x, max_y;
 
         /* Get full client area */
         cxClient = LOWORD(lParam);
@@ -3241,6 +3278,12 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             cbHeight = CommandBar_Height(g_hwndCB);
         }
 #endif
+
+        /* Calculate scrollbar sizes */
+        sbWidth = GetSystemMetrics(SM_CXVSCROLL);
+        sbHeight = GetSystemMetrics(SM_CYHSCROLL);
+        if (sbWidth <= 0) sbWidth = 16;
+        if (sbHeight <= 0) sbHeight = 16;
 
         /* Get the toolbar window handle */
         hwndToolbarWnd = GetToolbarWindow();
@@ -3253,11 +3296,52 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             CreateToolbar(hwnd, 0, cbHeight, toolbarWidth, cyClient - cbHeight);
         }
 
-        /* Resize the drawing buffer to the client area less the toolbar and commandbar */
-        resizeBuffer(cxClient - toolbarWidth, cyClient - cbHeight);
+        /* Calculate city view area */
+        viewWidth = cxClient - toolbarWidth - sbWidth;
+        viewHeight = cyClient - cbHeight - sbHeight;
+        if (viewWidth < 0) viewWidth = 0;
+        if (viewHeight < 0) viewHeight = 0;
 
-        /* Adjust the xOffset to account for the toolbar */
-        xOffset = toolbarWidth;
+        /* Move or create horizontal scrollbar */
+        if (hwndHScroll && IsWindow(hwndHScroll)) {
+            MoveWindow(hwndHScroll, toolbarWidth, cyClient - sbHeight,
+                       viewWidth, sbHeight, TRUE);
+        } else {
+            hwndHScroll = CreateWindow(
+                "SCROLLBAR", NULL,
+                WS_CHILD | WS_VISIBLE | SBS_HORZ,
+                toolbarWidth, cyClient - sbHeight,
+                viewWidth, sbHeight,
+                hwnd, (HMENU)1001, GetModuleHandle(NULL), NULL);
+        }
+
+        /* Move or create vertical scrollbar */
+        if (hwndVScroll && IsWindow(hwndVScroll)) {
+            MoveWindow(hwndVScroll, cxClient - sbWidth, cbHeight,
+                       sbWidth, viewHeight, TRUE);
+        } else {
+            hwndVScroll = CreateWindow(
+                "SCROLLBAR", NULL,
+                WS_CHILD | WS_VISIBLE | SBS_VERT,
+                cxClient - sbWidth, cbHeight,
+                sbWidth, viewHeight,
+                hwnd, (HMENU)1002, GetModuleHandle(NULL), NULL);
+        }
+
+        /* Resize the drawing buffer to the client area less the toolbar, commandbar, and scrollbars */
+        resizeBuffer(viewWidth, viewHeight);
+
+        /* Clamp offsets within valid bounds */
+        max_x = WORLD_X * TILE_SIZE - viewWidth;
+        max_y = WORLD_Y * TILE_SIZE - viewHeight;
+        if (max_x < 0) max_x = 0;
+        if (max_y < 0) max_y = 0;
+        if (xOffset > max_x) xOffset = max_x;
+        if (yOffset > max_y) yOffset = max_y;
+        if (xOffset < 0) xOffset = 0;
+        if (yOffset < 0) yOffset = 0;
+
+        UpdateScrollBars();
 
         return 0;
     }
@@ -3310,6 +3394,30 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             TogglePause();
             break;
 
+        case VK_PRIOR: {
+            int viewHeight = cyClient - cbHeight - sbHeight;
+            scrollView(0, -(viewHeight > TILE_SIZE ? viewHeight - TILE_SIZE : TILE_SIZE));
+            break;
+        }
+
+        case VK_NEXT: {
+            int viewHeight = cyClient - cbHeight - sbHeight;
+            scrollView(0, (viewHeight > TILE_SIZE ? viewHeight - TILE_SIZE : TILE_SIZE));
+            break;
+        }
+
+        case VK_HOME: {
+            int viewWidth = cxClient - toolbarWidth - sbWidth;
+            scrollView(-(viewWidth > TILE_SIZE ? viewWidth - TILE_SIZE : TILE_SIZE), 0);
+            break;
+        }
+
+        case VK_END: {
+            int viewWidth = cxClient - toolbarWidth - sbWidth;
+            scrollView((viewWidth > TILE_SIZE ? viewWidth - TILE_SIZE : TILE_SIZE), 0);
+            break;
+        }
+
         case '1':
             SetGameSpeed(SPEED_SLOW);
             break;
@@ -3330,9 +3438,136 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
 
+    case WM_HSCROLL: {
+        if ((HWND)lParam == hwndHScroll) {
+            int viewWidth = cxClient - toolbarWidth - sbWidth;
+            int max_x = WORLD_X * TILE_SIZE - viewWidth;
+            int newX = xOffset;
+            if (max_x < 0) max_x = 0;
+
+            switch (LOWORD(wParam)) {
+            case SB_LINELEFT:
+                newX -= TILE_SIZE;
+                break;
+            case SB_LINERIGHT:
+                newX += TILE_SIZE;
+                break;
+            case SB_PAGELEFT:
+                newX -= (viewWidth > TILE_SIZE ? viewWidth - TILE_SIZE : TILE_SIZE);
+                break;
+            case SB_PAGERIGHT:
+                newX += (viewWidth > TILE_SIZE ? viewWidth - TILE_SIZE : TILE_SIZE);
+                break;
+            case SB_THUMBTRACK:
+            case SB_THUMBPOSITION: {
+                SCROLLINFO si;
+                ZeroMemory(&si, sizeof(si));
+                si.cbSize = sizeof(si);
+                si.fMask = SIF_TRACKPOS;
+                if (GetScrollInfo(hwndHScroll, SB_CTL, &si)) {
+                    newX = si.nTrackPos;
+                } else {
+                    newX = HIWORD(wParam);
+                }
+                break;
+            }
+            default:
+                break;
+            }
+
+            if (newX < 0) newX = 0;
+            if (newX > max_x) newX = max_x;
+
+            if (newX != xOffset) {
+                xOffset = newX;
+                if (LOWORD(wParam) != SB_THUMBTRACK) {
+                    UpdateScrollBars();
+                }
+                InvalidateCityView();
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            if (LOWORD(wParam) == SB_THUMBPOSITION || LOWORD(wParam) == SB_ENDSCROLL) {
+                UpdateScrollBars();
+            }
+            return 0;
+        }
+        break;
+    }
+
+    case WM_VSCROLL: {
+        if ((HWND)lParam == hwndVScroll) {
+            int viewHeight = cyClient - cbHeight - sbHeight;
+            int max_y = WORLD_Y * TILE_SIZE - viewHeight;
+            int newY = yOffset;
+            if (max_y < 0) max_y = 0;
+
+            switch (LOWORD(wParam)) {
+            case SB_LINEUP:
+                newY -= TILE_SIZE;
+                break;
+            case SB_LINEDOWN:
+                newY += TILE_SIZE;
+                break;
+            case SB_PAGEUP:
+                newY -= (viewHeight > TILE_SIZE ? viewHeight - TILE_SIZE : TILE_SIZE);
+                break;
+            case SB_PAGEDOWN:
+                newY += (viewHeight > TILE_SIZE ? viewHeight - TILE_SIZE : TILE_SIZE);
+                break;
+            case SB_THUMBTRACK:
+            case SB_THUMBPOSITION: {
+                SCROLLINFO si;
+                ZeroMemory(&si, sizeof(si));
+                si.cbSize = sizeof(si);
+                si.fMask = SIF_TRACKPOS;
+                if (GetScrollInfo(hwndVScroll, SB_CTL, &si)) {
+                    newY = si.nTrackPos;
+                } else {
+                    newY = HIWORD(wParam);
+                }
+                break;
+            }
+            default:
+                break;
+            }
+
+            if (newY < 0) newY = 0;
+            if (newY > max_y) newY = max_y;
+
+            if (newY != yOffset) {
+                yOffset = newY;
+                if (LOWORD(wParam) != SB_THUMBTRACK) {
+                    UpdateScrollBars();
+                }
+                InvalidateCityView();
+                InvalidateRect(hwnd, NULL, FALSE);
+            }
+            if (LOWORD(wParam) == SB_THUMBPOSITION || LOWORD(wParam) == SB_ENDSCROLL) {
+                UpdateScrollBars();
+            }
+            return 0;
+        }
+        break;
+    }
+
+    case WM_MOUSEWHEEL: {
+        short zDelta = (short)HIWORD(wParam);
+        scrollView(0, (zDelta > 0) ? -TILE_SIZE * 3 : TILE_SIZE * 3);
+        return 0;
+    }
+
     case WM_DESTROY:
         CleanupSimTimer(hwnd);
         cleanupGraphics();
+
+        if (hwndHScroll) {
+            DestroyWindow(hwndHScroll);
+            hwndHScroll = NULL;
+        }
+        if (hwndVScroll) {
+            DestroyWindow(hwndVScroll);
+            hwndVScroll = NULL;
+        }
 
         /* Clean up toolbar */
         if (GetToolbarWindow()) {
@@ -3929,6 +4164,12 @@ void resizeBuffer(int cx, int cy) {
 void scrollView(int dx, int dy) {
     RECT rcClient;
     HRGN hRgn;
+    int viewWidth = cxClient - toolbarWidth - sbWidth;
+    int viewHeight = cyClient - cbHeight - sbHeight;
+    int max_x = WORLD_X * TILE_SIZE - viewWidth;
+    int max_y = WORLD_Y * TILE_SIZE - viewHeight;
+    if (max_x < 0) max_x = 0;
+    if (max_y < 0) max_y = 0;
 
     /* Adjust offsets */
     xOffset += dx;
@@ -3942,17 +4183,21 @@ void scrollView(int dx, int dy) {
         yOffset = 0;
     }
 
-    if (xOffset > WORLD_X * TILE_SIZE - (cxClient - toolbarWidth)) {
-        xOffset = WORLD_X * TILE_SIZE - (cxClient - toolbarWidth);
+    if (xOffset > max_x) {
+        xOffset = max_x;
     }
-    if (yOffset > WORLD_Y * TILE_SIZE - (cyClient - cbHeight)) {
-        yOffset = WORLD_Y * TILE_SIZE - (cyClient - cbHeight);
+    if (yOffset > max_y) {
+        yOffset = max_y;
     }
 
-    /* Get client area without toolbar and CommandBar */
+    UpdateScrollBars();
+
+    /* Get client area without toolbar, CommandBar, and scrollbars */
     GetClientRect(hwndMain, &rcClient);
     rcClient.left = toolbarWidth; /* Skip toolbar area */
     rcClient.top = cbHeight;      /* Skip CommandBar area */
+    rcClient.right = cxClient - sbWidth;
+    rcClient.bottom = cyClient - sbHeight;
 
     /* Create update region for the map area only */
     hRgn = CreateRectRgnIndirect(&rcClient);
@@ -4563,14 +4808,7 @@ int loadCity(char *filename) {
         return 0;
     }
 
-    xOffset = (WORLD_X * TILE_SIZE - cxClient) / 2;
-    yOffset = (WORLD_Y * TILE_SIZE - cyClient) / 2;
-    if (xOffset < 0) {
-        xOffset = 0;
-    }
-    if (yOffset < 0) {
-        yOffset = 0;
-    }
+    CenterMapOnTile(WORLD_X / 2, WORLD_Y / 2);
 
     /* First run a full census to calculate initial city population */
     ForceFullCensus();
@@ -5063,8 +5301,8 @@ void drawCity(HDC hdc) {
     /* Calculate visible tile range */
     startX = xOffset / TILE_SIZE;
     startY = yOffset / TILE_SIZE;
-    endX = (xOffset + (cxClient - toolbarWidth) + TILE_SIZE - 1) / TILE_SIZE + 1;
-    endY = (yOffset + (cyClient - cbHeight) + TILE_SIZE - 1) / TILE_SIZE + 1;
+    endX = (xOffset + (cxClient - toolbarWidth - sbWidth) + TILE_SIZE - 1) / TILE_SIZE + 1;
+    endY = (yOffset + (cyClient - cbHeight - sbHeight) + TILE_SIZE - 1) / TILE_SIZE + 1;
 
     /* Bounds check */
     if (startX < 0) {
@@ -5090,8 +5328,8 @@ void drawCity(HDC hdc) {
 
     /* If window is wider or taller than the entire world map, clear uncovered margins on full redraw */
     if (fullRedraw) {
-        if ((cxClient - toolbarWidth) > WORLD_X * TILE_SIZE ||
-            (cyClient - cbHeight) > WORLD_Y * TILE_SIZE) {
+        if ((cxClient - toolbarWidth - sbWidth) > WORLD_X * TILE_SIZE ||
+            (cyClient - cbHeight - sbHeight) > WORLD_Y * TILE_SIZE) {
             RECT rcClient;
             rcClient.left = 0;
             rcClient.top = 0;
@@ -5147,8 +5385,8 @@ void drawCity(HDC hdc) {
             int sw = sprite->width > 0 ? sprite->width : 32;
             int sh = sprite->height > 0 ? sprite->height : 32;
 
-            if (spriteScreenX + sw > 0 && spriteScreenX < (cxClient - toolbarWidth) &&
-                spriteScreenY + sh > 0 && spriteScreenY < (cyClient - cbHeight)) {
+            if (spriteScreenX + sw > 0 && spriteScreenX < (cxClient - toolbarWidth - sbWidth) &&
+                spriteScreenY + sh > 0 && spriteScreenY < (cyClient - cbHeight - sbHeight)) {
                 int worldPixelLeft = sprite->x + sprite->x_offset - 8;
                 int worldPixelTop = sprite->y + sprite->y_offset - 8;
                 int worldPixelRight = sprite->x + sprite->x_offset + sw + 8;
@@ -5322,7 +5560,8 @@ void drawCity(HDC hdc) {
             hLegendPenPowerLine = CreatePen(PS_SOLID, 1, RGB(0, 255, 0));
         }
         
-        legendX = (cxClient - toolbarWidth) - 300;
+        legendX = (cxClient - toolbarWidth - sbWidth) - 300;
+        if (legendX < 10) legendX = 10;
         legendY = 10;
         legendWidth = 150;
         legendHeight = 120;
