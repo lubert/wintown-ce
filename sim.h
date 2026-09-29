@@ -477,6 +477,8 @@ int SimRandom(int range);
 int Rand(int range);
 short Rand16();
 short Rand16Signed();
+unsigned short SimRand16U(void);
+void SeedRand(int seed);
 void RandomlySeedRand(void);
 #endif
 void DoTimeStuff(void);
@@ -693,9 +695,6 @@ extern Byte Qtem[QWX][QWY];
 
 #define NoDisasters (!DisastersEnabled)
 #define MakeExplosionAt(px, py) MakeExplosion((px) >> 4, (py) >> 4)
-#ifndef _W_SIM_H
-#define SeedRand(s) srand((unsigned int)(s))
-#endif
 #define GenerateNewCity _orig_GenerateNewCity
 #define GenerateSomeCity _orig_GenerateSomeCity
 

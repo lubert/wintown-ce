@@ -15,8 +15,9 @@
 #define RandomlySeedRand _orig_RandomlySeedRand
 #define SeedRand _orig_SeedRand
 
-#define sim_rand rand
-#define sim_srand srand
+extern unsigned short SimRand16U(void);
+#define sim_rand() ((int)SimRand16U())
+#define sim_srand(s) srand((unsigned int)(s))
 
 #define doAllGraphs()
 

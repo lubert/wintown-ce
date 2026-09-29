@@ -154,26 +154,49 @@ static int TMapX, TMapY;
 short CChr;
 short CChr9;
 
-/* Random number generator - Windows compatible */
+/* Standard 32-bit Linear Congruential Generator (LCG) matching classic Micropolis.
+ * Uses multiplier 1103515245 and addend 12345 to generate a 32-bit sequence.
+ * High 16 bits [31:16] provide a full, uniform 16-bit range (0x0000 - 0xFFFF).
+ */
+static unsigned long sim_rand_seed = 1;
+
+void SeedRand(int seed) {
+    sim_rand_seed = (unsigned long)seed;
+    srand((unsigned int)seed);
+}
+
 void RandomlySeedRand(void) {
-    srand((unsigned int)GetTickCount());
+    DWORD tick = GetTickCount();
+    sim_rand_seed = (unsigned long)tick;
+    srand((unsigned int)tick);
 }
 
-/* Public random number function - available to other modules */
+/* Return full 16-bit unsigned random value in [0, 65535] */
+unsigned short SimRand16U(void) {
+    sim_rand_seed = sim_rand_seed * 1103515245UL + 12345UL;
+    return (unsigned short)((sim_rand_seed >> 16) & 0xFFFF);
+}
+
+/* Public random number function - returns [0, range - 1] */
 int SimRandom(int range) {
-    return (rand() % range);
+    if (range <= 0) return 0;
+    return (int)(SimRand16U() % (unsigned int)range);
 }
 
+/* Returns [0, range] inclusive */
 int Rand(int range) {
-    return rand() % (range + 1);
+    if (range <= 0) return 0;
+    return (int)(SimRand16U() % (unsigned int)(range + 1));
 }
 
-short Rand16() {
-    return (short)(rand() & 0xFFFF);
+/* Returns full 16-bit random integer [0, 65535] as short */
+short Rand16(void) {
+    return (short)SimRand16U();
 }
 
-short Rand16Signed() {
-    return (short)(rand() & 0xFFFF);
+/* Returns full 16-bit signed random integer in [-32768, +32767] */
+short Rand16Signed(void) {
+    return (short)SimRand16U();
 }
 
 void DoSimInit(void) {
