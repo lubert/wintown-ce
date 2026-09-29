@@ -2,8 +2,8 @@
 setlocal
 call C:\Users\Lu\src\toolchain\setenv_mips.bat
 
-set CFLAGS=-c -O2 -D_WIN32_WCE=211 -DUNDER_CE=211 -DWIN32 -DUNICODE -D_UNICODE -DMIPS -D_MIPS_ -DNEW32=1 -I. -IC:\Users\Lu\src\toolchain\wce211_mips\sdk\Emulation_Include_Files
-set LFLAGS=/subsystem:windowsce,2.11 /machine:MIPS /entry:WinMainCRTStartup /nodefaultlib /libpath:C:\Users\Lu\src\toolchain\wce211_mips\sdk\Emulation_Libs\mips
+set CFLAGS=-c -O2 /QMR4100 /QMNoDivCheck /GF /Gy -D_WIN32_WCE=211 -DUNDER_CE=211 -DWIN32 -DUNICODE -D_UNICODE -DMIPS -D_MIPS_ -DNEW32=1 -I. -IC:\Users\Lu\src\toolchain\wce211_mips\sdk\Emulation_Include_Files
+set LFLAGS=/subsystem:windowsce,2.11 /machine:MIPS /entry:WinMainCRTStartup /nodefaultlib /opt:ref /libpath:C:\Users\Lu\src\toolchain\wce211_mips\sdk\Emulation_Libs\mips
 
 echo Compiling WinTown C source files...
 clmips.exe %CFLAGS% anim.c animtab.c assets.c budget.c cecompat.c charts.c disastr.c eval.c gdifix.c main.c mapgen.c newgame.c notify.c scenario.c sim.c sprite.c tiles.c tools.c

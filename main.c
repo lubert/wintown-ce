@@ -474,6 +474,7 @@ int saveCity(void);
 int saveCityAs(void);
 int testSaveLoad(void);
 void drawCity(HDC hdc);
+void InvalidateCityView(void);
 void drawTile(HDC hdc, int x, int y, short tileValue);
 void initTileBaseLookup();
 /* getBaseFromTile() is now a macro for O(1) performance */
@@ -810,6 +811,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
             if (initNewGame(&config)) {
                 addGameLog("New game started successfully");
                 SetGameSpeed(SPEED_MEDIUM);
+                InvalidateCityView();
                 InvalidateRect(hwndMain, NULL, TRUE);
             } else {
                 addGameLog("Failed to initialize new game");
@@ -2057,7 +2059,11 @@ LRESULT CALLBACK tilesWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 /* These constants should match those in simulation.c */
 #define SIM_TIMER_ID 1
+#ifdef _WIN32_WCE
+#define SIM_TIMER_INTERVAL 200  /* 5 fps on CE / MIPS */
+#else
 #define SIM_TIMER_INTERVAL 100  /* Reasonable interval for city simulation */
+#endif
 
 /* Update menu when simulation speed changes */
 void UpdateSimulationMenu(HWND hwnd, int speed) {
@@ -2185,6 +2191,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 if (initNewGame(&config)) {
                     addGameLog("New game started successfully");
                     SetGameSpeed(SPEED_MEDIUM);
+                    InvalidateCityView();
                     InvalidateRect(hwnd, NULL, TRUE);
                 } else {
                     MessageBox(hwnd, "Failed to start new game.", "Error", MB_OK | MB_ICONERROR);
@@ -2871,6 +2878,24 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             /* Update the display */
             if (needRedraw) {
                 InvalidateRect(hwnd, NULL, FALSE);
+#ifdef _WIN32_WCE
+                /* Update minimap only every 10 frames (2 seconds at 200ms intervals) */
+                minimapUpdateCounter++;
+                if (minimapUpdateCounter >= 10) {
+                    minimapUpdateCounter = 0;
+                    if (hwndMinimap && IsWindowVisible(hwndMinimap)) {
+                        InvalidateRect(hwndMinimap, NULL, FALSE);
+                    }
+                }
+                /* Update chart only every 25 frames (5 seconds at 200ms intervals) */
+                chartUpdateCounter++;
+                if (chartUpdateCounter >= 25) {
+                    chartUpdateCounter = 0;
+                    if (hwndCharts && IsWindowVisible(hwndCharts)) {
+                        InvalidateRect(hwndCharts, NULL, FALSE);
+                    }
+                }
+#else
                 /* Update minimap only every 20 frames (2 seconds at 100ms intervals) */
                 minimapUpdateCounter++;
                 if (minimapUpdateCounter >= 20) {
@@ -2887,6 +2912,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                         InvalidateRect(hwndCharts, NULL, FALSE);
                     }
                 }
+#endif
             }
             return 0;
         } else if (wParam == EARTHQUAKE_TIMER_ID) {
@@ -2902,6 +2928,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             HDC hdc = GetDC(hwnd);
             SelectPalette(hdc, hPalette, FALSE);
             RealizePalette(hdc);
+            InvalidateCityView();
             InvalidateRect(hwnd, NULL, FALSE);
             ReleaseDC(hwnd, hdc);
             return TRUE;
@@ -2916,6 +2943,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             SelectPalette(hdc, hPalette, FALSE);
             RealizePalette(hdc);
             UpdateColors(hdc);
+            InvalidateCityView();
             ReleaseDC(hwnd, hdc);
         }
         return 0;
@@ -2979,6 +3007,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (isToolActive) {
             /* Apply the tool at this position */
             int result = HandleToolMouse(xPos, yPos, xOffset, yOffset);
+            InvalidateRect(hwnd, NULL, FALSE);
 
             /* Initialize tool dragging for supported tools */
             if (IsToolDragSupported()) {
@@ -3062,6 +3091,7 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             /* Continuous tool drawing during drag */
             ToolDrag(xPos, yPos);
             SetCursor(LoadCursor(NULL, IDC_ARROW));
+            InvalidateRect(hwnd, NULL, FALSE);
         } else if (isToolActive) {
             /* Convert mouse position to map coordinates for tool hover */
             ScreenToMap(xPos, yPos, &mapX, &mapY, xOffset, yOffset);
@@ -3711,6 +3741,7 @@ int changeTileset(HWND hwnd, const char *tilesetName) {
     SetWindowText(hwnd, windowTitle);
 
     /* Force a full redraw */
+    InvalidateCityView();
     InvalidateRect(hwnd, NULL, TRUE);
     
     /* Also invalidate tiles debug window if it exists and is visible */
@@ -3831,6 +3862,7 @@ void resizeBuffer(int cx, int cy) {
 
     ReleaseDC(hwndMain, hdc);
 
+    InvalidateCityView();
     InvalidateRect(hwndMain, NULL, FALSE);
 }
 
@@ -4547,6 +4579,7 @@ int loadCity(char *filename) {
         SetWindowText(hwndMain, windowTitle);
     }
 
+    InvalidateCityView();
     InvalidateRect(hwndMain, NULL, FALSE);
 
     /* Log the city load event */
@@ -4915,6 +4948,32 @@ void drawTile(HDC hdc, int x, int y, short tileValue) {
      */
 }
 
+/* Dirty-tile and render cache for drawCity */
+static short lastRenderedMap[WORLD_X][WORLD_Y];
+static int last_xOffset = -1;
+static int last_yOffset = -1;
+static int last_cxClient = -1;
+static int last_cyClient = -1;
+static int last_powerOverlay = -1;
+static int forceFullRedraw = 1;
+
+/* Sprite bounding box tracking from previous frame to erase sprites */
+typedef struct {
+    int valid;
+    int minTileX, minTileY;
+    int maxTileX, maxTileY;
+} SpriteTileBox;
+static SpriteTileBox lastSpriteBoxes[MAX_SPRITES];
+
+/* Tool hover tracking from previous frame to erase hover rectangle */
+static int lastHoverValid = 0;
+static int lastHoverMinX = 0, lastHoverMinY = 0;
+static int lastHoverMaxX = 0, lastHoverMaxY = 0;
+
+void InvalidateCityView(void) {
+    forceFullRedraw = 1;
+}
+
 void drawCity(HDC hdc) {
     int x;
     int y;
@@ -4928,22 +4987,33 @@ void drawCity(HDC hdc) {
     int cityYear;
     int fundValue;
     int popValue;
-    RECT rcClient;
+    int i;
+    BOOL fullRedraw;
+    static unsigned char tileDirty[WORLD_X][WORLD_Y];
+    SpriteTileBox currentSpriteBoxes[MAX_SPRITES];
+    int hoverActive = 0;
+    int hoverMapX = 0, hoverMapY = 0;
+    int currentHoverMinX = 0, currentHoverMinY = 0;
+    int currentHoverMaxX = 0, currentHoverMaxY = 0;
+
+    static int renderCacheInitialized = 0;
+    if (!renderCacheInitialized) {
+        memset(lastRenderedMap, 0xFF, sizeof(lastRenderedMap));
+        memset(lastSpriteBoxes, 0, sizeof(lastSpriteBoxes));
+        renderCacheInitialized = 1;
+    }
 
     /* Copy simulation values to local variables for display */
     cityMonth = CityMonth;
     cityYear = CityYear;
     fundValue = (int)TotalFunds;
-
-    /* Display the current population */
     popValue = (int)CityPop;
 
-    /* Calculate visible range */
+    /* Calculate visible tile range */
     startX = xOffset / TILE_SIZE;
     startY = yOffset / TILE_SIZE;
-    /* Adjust the width of the map view based on toolbar */
-    endX = startX + ((cxClient - toolbarWidth) / TILE_SIZE) + 1;
-    endY = startY + (cyClient / TILE_SIZE) + 1;
+    endX = (xOffset + (cxClient - toolbarWidth) + TILE_SIZE - 1) / TILE_SIZE + 1;
+    endY = (yOffset + (cyClient - cbHeight) + TILE_SIZE - 1) / TILE_SIZE + 1;
 
     /* Bounds check */
     if (startX < 0) {
@@ -4959,20 +5029,175 @@ void drawCity(HDC hdc) {
         endY = WORLD_Y;
     }
 
-    /* Clear the background */
-    rcClient.left = 0;
-    rcClient.top = 0;
-    rcClient.right = cxClient;
-    rcClient.bottom = cyClient;
-    FillRect(hdc, &rcClient, (HBRUSH)GetStockObject(BLACK_BRUSH));
+    /* Check if full redraw of all visible tiles is required */
+    fullRedraw = forceFullRedraw ||
+                 (xOffset != last_xOffset) ||
+                 (yOffset != last_yOffset) ||
+                 (cxClient != last_cxClient) ||
+                 (cyClient != last_cyClient) ||
+                 (powerOverlayEnabled != last_powerOverlay);
 
-    /* Draw the map tiles */
+    /* If window is wider or taller than the entire world map, clear uncovered margins on full redraw */
+    if (fullRedraw) {
+        if ((cxClient - toolbarWidth) > WORLD_X * TILE_SIZE ||
+            (cyClient - cbHeight) > WORLD_Y * TILE_SIZE) {
+            RECT rcClient;
+            rcClient.left = 0;
+            rcClient.top = 0;
+            rcClient.right = cxClient;
+            rcClient.bottom = cyClient;
+            FillRect(hdc, &rcClient, (HBRUSH)GetStockObject(BLACK_BRUSH));
+        }
+    }
+
+    memset(currentSpriteBoxes, 0, sizeof(currentSpriteBoxes));
+
+    if (!fullRedraw) {
+        /* Clear dirty flags for visible region */
+        for (y = startY; y < endY; y++) {
+            for (x = startX; x < endX; x++) {
+                tileDirty[x][y] = 0;
+            }
+        }
+
+        /* 1. Mark tiles that changed in simulation or have animation bit */
+        for (y = startY; y < endY; y++) {
+            for (x = startX; x < endX; x++) {
+                short tileVal = Map[x][y];
+                if (tileVal != lastRenderedMap[x][y] || (tileVal & ANIMBIT)) {
+                    tileDirty[x][y] = 1;
+                }
+            }
+        }
+
+        /* 2. Mark previous frame sprite bounding boxes to erase old sprite positions */
+        for (i = 0; i < MAX_SPRITES; i++) {
+            if (lastSpriteBoxes[i].valid) {
+                int bx0 = lastSpriteBoxes[i].minTileX < startX ? startX : lastSpriteBoxes[i].minTileX;
+                int by0 = lastSpriteBoxes[i].minTileY < startY ? startY : lastSpriteBoxes[i].minTileY;
+                int bx1 = lastSpriteBoxes[i].maxTileX > endX ? endX : lastSpriteBoxes[i].maxTileX;
+                int by1 = lastSpriteBoxes[i].maxTileY > endY ? endY : lastSpriteBoxes[i].maxTileY;
+                for (y = by0; y < by1; y++) {
+                    for (x = bx0; x < bx1; x++) {
+                        tileDirty[x][y] = 1;
+                    }
+                }
+            }
+        }
+
+        /* 3. Mark previous tool hover box to erase old hover outline */
+        if (lastHoverValid) {
+            int hx0 = lastHoverMinX < startX ? startX : lastHoverMinX;
+            int hy0 = lastHoverMinY < startY ? startY : lastHoverMinY;
+            int hx1 = lastHoverMaxX > endX ? endX : lastHoverMaxX;
+            int hy1 = lastHoverMaxY > endY ? endY : lastHoverMaxY;
+            for (y = hy0; y < hy1; y++) {
+                for (x = hx0; x < hx1; x++) {
+                    tileDirty[x][y] = 1;
+                }
+            }
+        }
+    }
+
+    /* Calculate current frame sprite bounding boxes */
+    for (i = 0; i < MAX_SPRITES; i++) {
+        SimSprite *sprite = GetSpriteByIndex(i);
+        if (sprite != NULL) {
+            int spriteScreenX = sprite->x - xOffset + sprite->x_offset;
+            int spriteScreenY = sprite->y - yOffset + sprite->y_offset;
+            int sw = sprite->width > 0 ? sprite->width : 32;
+            int sh = sprite->height > 0 ? sprite->height : 32;
+
+            if (spriteScreenX + sw > 0 && spriteScreenX < (cxClient - toolbarWidth) &&
+                spriteScreenY + sh > 0 && spriteScreenY < (cyClient - cbHeight)) {
+                int worldPixelLeft = sprite->x + sprite->x_offset - 8;
+                int worldPixelTop = sprite->y + sprite->y_offset - 8;
+                int worldPixelRight = sprite->x + sprite->x_offset + sw + 8;
+                int worldPixelBottom = sprite->y + sprite->y_offset + sh + 8;
+
+                int bx0 = worldPixelLeft >= 0 ? worldPixelLeft / TILE_SIZE : 0;
+                int by0 = worldPixelTop >= 0 ? worldPixelTop / TILE_SIZE : 0;
+                int bx1 = (worldPixelRight + TILE_SIZE - 1) / TILE_SIZE;
+                int by1 = (worldPixelBottom + TILE_SIZE - 1) / TILE_SIZE;
+
+                if (bx0 < 0) bx0 = 0;
+                if (by0 < 0) by0 = 0;
+                if (bx1 > WORLD_X) bx1 = WORLD_X;
+                if (by1 > WORLD_Y) by1 = WORLD_Y;
+
+                currentSpriteBoxes[i].valid = 1;
+                currentSpriteBoxes[i].minTileX = bx0;
+                currentSpriteBoxes[i].minTileY = by0;
+                currentSpriteBoxes[i].maxTileX = bx1;
+                currentSpriteBoxes[i].maxTileY = by1;
+
+                if (!fullRedraw) {
+                    int clipX0 = bx0 < startX ? startX : bx0;
+                    int clipY0 = by0 < startY ? startY : by0;
+                    int clipX1 = bx1 > endX ? endX : bx1;
+                    int clipY1 = by1 > endY ? endY : by1;
+                    for (y = clipY0; y < clipY1; y++) {
+                        for (x = clipX0; x < clipX1; x++) {
+                            tileDirty[x][y] = 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /* Calculate current tool hover box if active */
+    if (isToolActive) {
+        POINT mousePos;
+        GetCursorPos(&mousePos);
+        ScreenToClient(hwndMain, &mousePos);
+
+        if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight &&
+            mousePos.x < cxClient && mousePos.y < cyClient) {
+            int size;
+            int hw = 1, hh = 1;
+            int hsx, hsy;
+
+            ScreenToMap(mousePos.x, mousePos.y, &hoverMapX, &hoverMapY, xOffset, yOffset);
+            size = GetToolSize(GetCurrentTool());
+            hsx = hoverMapX;
+            hsy = hoverMapY;
+
+            switch (size) {
+            case TOOL_SIZE_3X3: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 3; hh = 3; break;
+            case TOOL_SIZE_4X4: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 4; hh = 4; break;
+            case TOOL_SIZE_6X6: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 6; hh = 6; break;
+            default:            hsx = hoverMapX;     hsy = hoverMapY;     hw = 1; hh = 1; break;
+            }
+
+            currentHoverMinX = hsx >= 0 ? hsx : 0;
+            currentHoverMinY = hsy >= 0 ? hsy : 0;
+            currentHoverMaxX = (hsx + hw) <= WORLD_X ? (hsx + hw) : WORLD_X;
+            currentHoverMaxY = (hsy + hh) <= WORLD_Y ? (hsy + hh) : WORLD_Y;
+            hoverActive = 1;
+
+            if (!fullRedraw) {
+                int hx0 = currentHoverMinX < startX ? startX : currentHoverMinX;
+                int hy0 = currentHoverMinY < startY ? startY : currentHoverMinY;
+                int hx1 = currentHoverMaxX > endX ? endX : currentHoverMaxX;
+                int hy1 = currentHoverMaxY > endY ? endY : currentHoverMaxY;
+                for (y = hy0; y < hy1; y++) {
+                    for (x = hx0; x < hx1; x++) {
+                        tileDirty[x][y] = 1;
+                    }
+                }
+            }
+        }
+    }
+
+    /* Draw the map tiles (only dirty tiles or all tiles if full redraw) */
     for (y = startY; y < endY; y++) {
         for (x = startX; x < endX; x++) {
-            screenX = x * TILE_SIZE - xOffset;
-            screenY = y * TILE_SIZE - yOffset;
+            if (fullRedraw || tileDirty[x][y]) {
+                screenX = x * TILE_SIZE - xOffset;
+                screenY = y * TILE_SIZE - yOffset;
 
-            drawTile(hdc, screenX, screenY, Map[x][y]);
+                drawTile(hdc, screenX, screenY, Map[x][y]);
 
             /* If power overlay is enabled, show power status with a transparent color overlay */
             if (powerOverlayEnabled) {
@@ -5060,8 +5285,26 @@ void drawCity(HDC hdc) {
                     /* No DeleteObject needed - pen is cached */
                 }
             }
+
+            lastRenderedMap[x][y] = Map[x][y];
         }
     }
+}
+
+    /* Update render cache state for next frame */
+    memcpy(lastSpriteBoxes, currentSpriteBoxes, sizeof(lastSpriteBoxes));
+    lastHoverValid = hoverActive;
+    lastHoverMinX = currentHoverMinX;
+    lastHoverMinY = currentHoverMinY;
+    lastHoverMaxX = currentHoverMaxX;
+    lastHoverMaxY = currentHoverMaxY;
+
+    last_xOffset = xOffset;
+    last_yOffset = yOffset;
+    last_cxClient = cxClient;
+    last_cyClient = cyClient;
+    last_powerOverlay = powerOverlayEnabled;
+    forceFullRedraw = 0;
 
     /* Show legend for power overlay if enabled - use cached brushes */
     if (powerOverlayEnabled) {
@@ -5214,23 +5457,8 @@ void drawCity(HDC hdc) {
     }
 
     /* Draw tool hover highlight if a tool is active */
-    if (isToolActive) {
-        /* Get mouse position */
-        POINT mousePos;
-        int mapX, mapY;
-
-        GetCursorPos(&mousePos);
-        ScreenToClient(hwndMain, &mousePos);
-
-        /* Skip if mouse is outside client area or in toolbar / CommandBar */
-        if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight && mousePos.x < cxClient &&
-            mousePos.y < cyClient) {
-            /* Convert to map coordinates */
-            ScreenToMap(mousePos.x, mousePos.y, &mapX, &mapY, xOffset, yOffset);
-
-            /* Draw the highlight box */
-            DrawToolHover(hdc, mapX, mapY, GetCurrentTool(), xOffset, yOffset);
-        }
+    if (hoverActive) {
+        DrawToolHover(hdc, hoverMapX, hoverMapY, GetCurrentTool(), xOffset, yOffset);
     }
 
     /* Draw sprites (helicopters, planes, trains, ships, buses) */
@@ -5778,6 +6006,7 @@ void createNewMap(HWND hwnd) {
     addGameLog("Created new empty city");
     
     /* Force display update */
+    InvalidateCityView();
     InvalidateRect(hwnd, NULL, TRUE);
     
     /* Update info window */

@@ -722,8 +722,12 @@ int TestBounds(int x, int y) {
 /* Timer ID for simulation */
 #define SIM_TIMER_ID 1
 
-/* Timer interval in milliseconds - faster to match original game timing */
+/* Timer interval in milliseconds - 200ms (5 fps) on Windows CE to prevent queue starvation */
+#ifdef _WIN32_WCE
+#define SIM_TIMER_INTERVAL 200
+#else
 #define SIM_TIMER_INTERVAL 100
+#endif
 
 /* External function declaration for the UI update */
 extern void UpdateSimulationMenu(HWND hwnd, int speed);
