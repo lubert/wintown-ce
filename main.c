@@ -2989,6 +2989,31 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             /* Copy the buffer to the screen with offset for toolbar, commandbar, and earthquake shake */
             BitBlt(hdc, toolbarWidth + shakeX, cbHeight + shakeY, cxClient - toolbarWidth, cyClient - cbHeight, 
                    hdcBuffer, 0, 0, SRCCOPY);
+
+            /* Draw tool hover highlight directly on screen on top of blitted buffer (keeps hdcBuffer clean) */
+            if (isToolActive) {
+                POINT mousePos;
+                GetCursorPos(&mousePos);
+                ScreenToClient(hwnd, &mousePos);
+
+                if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight &&
+                    mousePos.x < cxClient && mousePos.y < cyClient) {
+                    int mapX, mapY;
+                    HRGN hClipRgn;
+
+                    ScreenToMap(mousePos.x, mousePos.y, &mapX, &mapY, xOffset, yOffset);
+
+                    hClipRgn = CreateRectRgn(toolbarWidth, cbHeight, cxClient, cyClient);
+                    SelectClipRgn(hdc, hClipRgn);
+
+                    DrawToolHover(hdc, mapX, mapY, GetCurrentTool(), 
+                                  xOffset - toolbarWidth - shakeX, 
+                                  yOffset - cbHeight - shakeY);
+
+                    SelectClipRgn(hdc, NULL);
+                    DeleteObject(hClipRgn);
+                }
+            }
         }
 
         EndPaint(hwnd, &ps);
@@ -4965,11 +4990,6 @@ typedef struct {
 } SpriteTileBox;
 static SpriteTileBox lastSpriteBoxes[MAX_SPRITES];
 
-/* Tool hover tracking from previous frame to erase hover rectangle */
-static int lastHoverValid = 0;
-static int lastHoverMinX = 0, lastHoverMinY = 0;
-static int lastHoverMaxX = 0, lastHoverMaxY = 0;
-
 void InvalidateCityView(void) {
     forceFullRedraw = 1;
 }
@@ -4991,10 +5011,6 @@ void drawCity(HDC hdc) {
     BOOL fullRedraw;
     static unsigned char tileDirty[WORLD_X][WORLD_Y];
     SpriteTileBox currentSpriteBoxes[MAX_SPRITES];
-    int hoverActive = 0;
-    int hoverMapX = 0, hoverMapY = 0;
-    int currentHoverMinX = 0, currentHoverMinY = 0;
-    int currentHoverMaxX = 0, currentHoverMaxY = 0;
 
     static int renderCacheInitialized = 0;
     if (!renderCacheInitialized) {
@@ -5085,18 +5101,6 @@ void drawCity(HDC hdc) {
             }
         }
 
-        /* 3. Mark previous tool hover box to erase old hover outline */
-        if (lastHoverValid) {
-            int hx0 = lastHoverMinX < startX ? startX : lastHoverMinX;
-            int hy0 = lastHoverMinY < startY ? startY : lastHoverMinY;
-            int hx1 = lastHoverMaxX > endX ? endX : lastHoverMaxX;
-            int hy1 = lastHoverMaxY > endY ? endY : lastHoverMaxY;
-            for (y = hy0; y < hy1; y++) {
-                for (x = hx0; x < hx1; x++) {
-                    tileDirty[x][y] = 1;
-                }
-            }
-        }
     }
 
     /* Calculate current frame sprite bounding boxes */
@@ -5140,50 +5144,6 @@ void drawCity(HDC hdc) {
                         for (x = clipX0; x < clipX1; x++) {
                             tileDirty[x][y] = 1;
                         }
-                    }
-                }
-            }
-        }
-    }
-
-    /* Calculate current tool hover box if active */
-    if (isToolActive) {
-        POINT mousePos;
-        GetCursorPos(&mousePos);
-        ScreenToClient(hwndMain, &mousePos);
-
-        if (mousePos.x >= toolbarWidth && mousePos.y >= cbHeight &&
-            mousePos.x < cxClient && mousePos.y < cyClient) {
-            int size;
-            int hw = 1, hh = 1;
-            int hsx, hsy;
-
-            ScreenToMap(mousePos.x, mousePos.y, &hoverMapX, &hoverMapY, xOffset, yOffset);
-            size = GetToolSize(GetCurrentTool());
-            hsx = hoverMapX;
-            hsy = hoverMapY;
-
-            switch (size) {
-            case TOOL_SIZE_3X3: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 3; hh = 3; break;
-            case TOOL_SIZE_4X4: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 4; hh = 4; break;
-            case TOOL_SIZE_6X6: hsx = hoverMapX - 1; hsy = hoverMapY - 1; hw = 6; hh = 6; break;
-            default:            hsx = hoverMapX;     hsy = hoverMapY;     hw = 1; hh = 1; break;
-            }
-
-            currentHoverMinX = hsx >= 0 ? hsx : 0;
-            currentHoverMinY = hsy >= 0 ? hsy : 0;
-            currentHoverMaxX = (hsx + hw) <= WORLD_X ? (hsx + hw) : WORLD_X;
-            currentHoverMaxY = (hsy + hh) <= WORLD_Y ? (hsy + hh) : WORLD_Y;
-            hoverActive = 1;
-
-            if (!fullRedraw) {
-                int hx0 = currentHoverMinX < startX ? startX : currentHoverMinX;
-                int hy0 = currentHoverMinY < startY ? startY : currentHoverMinY;
-                int hx1 = currentHoverMaxX > endX ? endX : currentHoverMaxX;
-                int hy1 = currentHoverMaxY > endY ? endY : currentHoverMaxY;
-                for (y = hy0; y < hy1; y++) {
-                    for (x = hx0; x < hx1; x++) {
-                        tileDirty[x][y] = 1;
                     }
                 }
             }
@@ -5293,11 +5253,6 @@ void drawCity(HDC hdc) {
 
     /* Update render cache state for next frame */
     memcpy(lastSpriteBoxes, currentSpriteBoxes, sizeof(lastSpriteBoxes));
-    lastHoverValid = hoverActive;
-    lastHoverMinX = currentHoverMinX;
-    lastHoverMinY = currentHoverMinY;
-    lastHoverMaxX = currentHoverMaxX;
-    lastHoverMaxY = currentHoverMaxY;
 
     last_xOffset = xOffset;
     last_yOffset = yOffset;
@@ -5454,11 +5409,6 @@ void drawCity(HDC hdc) {
 
         /* Restore text color */
         SetTextColor(hdc, oldTextColor);
-    }
-
-    /* Draw tool hover highlight if a tool is active */
-    if (hoverActive) {
-        DrawToolHover(hdc, hoverMapX, hoverMapY, GetCurrentTool(), xOffset, yOffset);
     }
 
     /* Draw sprites (helicopters, planes, trains, ships, buses) */
