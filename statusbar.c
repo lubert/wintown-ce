@@ -209,9 +209,9 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
 
     startX = prc->left + (prc->right - prc->left - (3 * colW + 2 * gap)) / 2;
 
-    /* Draw center labels R, C, I with smaller crisp font */
+    /* Draw center labels R, C, I with matching primary colors */
     if (!hFontRCI) {
-        hFontRCI = CreateFont(8, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+        hFontRCI = CreateFont(9, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
                               DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                               DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, "Arial");
     }
@@ -220,28 +220,18 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
     }
 
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(0, 0, 0));
     for (i = 0; i < 3; i++) {
         rcText.left = startX + i * (colW + gap);
         rcText.right = rcText.left + colW;
         rcText.top = textTop;
         rcText.bottom = textBottom;
+        SetTextColor(hdc, colors[i]);
         DrawText(hdc, labels[i], 1, &rcText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     }
 
     if (hOldFont) {
         SelectObject(hdc, hOldFont);
     }
-
-    /* Draw divider lines above and below letters */
-    hPenDark = CreatePen(PS_SOLID, 1, RGB(120, 120, 120));
-    hOldPen = (HPEN)SelectObject(hdc, hPenDark);
-    MoveToEx(hdc, startX - 2, textTop, NULL);
-    LineTo(hdc, startX + 3 * colW + 2 * gap + 2, textTop);
-    MoveToEx(hdc, startX - 2, textBottom, NULL);
-    LineTo(hdc, startX + 3 * colW + 2 * gap + 2, textBottom);
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hPenDark);
 
     maxUpH = textTop - (prc->top + 2);
     maxDownH = (prc->bottom - 2) - textBottom;
@@ -269,8 +259,8 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
         } else if (v < 0) {
             int barH = ((-v) * maxDownH) / 2000;
             if (barH < 1 && v < -50) barH = 1;
-            rcBar.top = textBottom + 1;
-            rcBar.bottom = textBottom + 1 + barH;
+            rcBar.top = textBottom;
+            rcBar.bottom = textBottom + barH;
             hbr = CreateSolidBrush(colors[i]);
             FillRect(hdc, &rcBar, hbr);
             DeleteObject(hbr);
