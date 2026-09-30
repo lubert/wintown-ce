@@ -3300,27 +3300,27 @@ LRESULT CALLBACK wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (sbWidth <= 0) sbWidth = 16;
         if (sbHeight <= 0) sbHeight = 16;
 
-        /* Get the toolbar window handle */
+        /* Move or create status bar across full window width */
+        barWidth = cxClient;
+        if (barWidth < 0) barWidth = 0;
+        hwndSB = GetStatusBarWindow();
+        if (hwndSB && IsWindow(hwndSB)) {
+            MoveWindow(hwndSB, 0, cbHeight, barWidth, STATUSBAR_HEIGHT, TRUE);
+        } else {
+            CreateStatusBar(hwnd, 0, cbHeight, barWidth, STATUSBAR_HEIGHT);
+        }
+        UpdateStatusBar();
+
+        /* Get the toolbar window handle - sits under the status bar */
         hwndToolbarWnd = GetToolbarWindow();
 
         /* If the toolbar exists, adjust its position */
         if (hwndToolbarWnd && IsWindow(hwndToolbarWnd)) {
-            MoveWindow(hwndToolbarWnd, 0, cbHeight, toolbarWidth, cyClient - cbHeight, TRUE);
+            MoveWindow(hwndToolbarWnd, 0, TOP_OFFSET, toolbarWidth, cyClient - TOP_OFFSET, TRUE);
         } else {
             /* Create the toolbar if it doesn't exist yet */
-            CreateToolbar(hwnd, 0, cbHeight, toolbarWidth, cyClient - cbHeight);
+            CreateToolbar(hwnd, 0, TOP_OFFSET, toolbarWidth, cyClient - TOP_OFFSET);
         }
-
-        /* Move or create status bar */
-        barWidth = cxClient - toolbarWidth;
-        if (barWidth < 0) barWidth = 0;
-        hwndSB = GetStatusBarWindow();
-        if (hwndSB && IsWindow(hwndSB)) {
-            MoveWindow(hwndSB, toolbarWidth, cbHeight, barWidth, STATUSBAR_HEIGHT, TRUE);
-        } else {
-            CreateStatusBar(hwnd, toolbarWidth, cbHeight, barWidth, STATUSBAR_HEIGHT);
-        }
-        UpdateStatusBar();
 
         /* Calculate city view area */
         viewWidth = cxClient - toolbarWidth - sbWidth;

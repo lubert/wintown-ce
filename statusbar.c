@@ -271,7 +271,7 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
 /* Paint entire status bar */
 static void PaintStatusBar(HWND hwnd, HDC hdc) {
     RECT rcClient;
-    RECT rcTop, rcRowDiv;
+    RECT rcTop, rcBottom, rcRowDiv;
     RECT rcFunds, rcGoTo, rcNotice, rcDate;
     RECT rcTool, rcBookmarkLabel, rcBookmarkBtn[5], rcInfo, rcRCI;
     RECT rcText;
@@ -311,6 +311,10 @@ static void PaintStatusBar(HWND hwnd, HDC hdc) {
     /* Top border line separating from CommandBar / menu */
     rcTop.left = 0; rcTop.top = 0; rcTop.right = rcClient.right; rcTop.bottom = 1;
     FillRect(hdcMem, &rcTop, (HBRUSH)GetStockObject(WHITE_BRUSH));
+
+    /* Bottom border line separating from toolbar panel and map */
+    rcBottom.left = 0; rcBottom.top = rcClient.bottom - 1; rcBottom.right = rcClient.right; rcBottom.bottom = rcClient.bottom;
+    FillRect(hdcMem, &rcBottom, (HBRUSH)GetStockObject(DKGRAY_BRUSH));
 
     /* Calculate panel positions */
     GetPanelRects(rcClient.right, rcClient.bottom,
