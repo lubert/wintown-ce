@@ -32,6 +32,7 @@ extern void ShowEvaluationWindow(HWND hwndParent);
 
 static HWND hwndStatusBar = NULL;
 static BOOL isGoToPressed = FALSE;
+static HFONT hFontRCI = NULL;
 
 /* Bookmarks: 5 map location slots */
 typedef struct {
@@ -188,25 +189,36 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
     int maxUpH, maxDownH;
     static const char *labels[3] = { "R", "C", "I" };
 
+    HFONT hOldFont = NULL;
+
     /* Fill background and bevel */
     FillRect(hdc, prc, (HBRUSH)GetStockObject(LTGRAY_BRUSH));
     Draw3DBevel(hdc, prc->left, prc->top, prc->right, prc->bottom, TRUE);
 
     midY = (prc->top + prc->bottom) / 2;
-    textTop = midY - 6;
-    textBottom = midY + 6;
+    textTop = midY - 5;
+    textBottom = midY + 5;
 
     valves[0] = RValve;
     valves[1] = CValve;
     valves[2] = IValve;
 
-    colors[0] = RGB(0, 180, 0);     /* R: Green */
-    colors[1] = RGB(0, 100, 230);   /* C: Blue */
-    colors[2] = RGB(220, 170, 0);   /* I: Amber / Yellow */
+    colors[0] = RGB(0, 255, 0);     /* R: Primary Green */
+    colors[1] = RGB(0, 0, 255);     /* C: Primary Blue */
+    colors[2] = RGB(255, 255, 0);   /* I: Primary Yellow */
 
     startX = prc->left + (prc->right - prc->left - (3 * colW + 2 * gap)) / 2;
 
-    /* Draw center labels R, C, I */
+    /* Draw center labels R, C, I with smaller crisp font */
+    if (!hFontRCI) {
+        hFontRCI = CreateFont(8, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                              DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                              DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, "Arial");
+    }
+    if (hFontRCI) {
+        hOldFont = (HFONT)SelectObject(hdc, hFontRCI);
+    }
+
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(0, 0, 0));
     for (i = 0; i < 3; i++) {
@@ -215,6 +227,10 @@ static void DrawRCIMeter(HDC hdc, const RECT *prc) {
         rcText.top = textTop;
         rcText.bottom = textBottom;
         DrawText(hdc, labels[i], 1, &rcText, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+
+    if (hOldFont) {
+        SelectObject(hdc, hOldFont);
     }
 
     /* Draw divider lines above and below letters */
@@ -654,6 +670,10 @@ void UpdateStatusBar(void) {
 }
 
 void CleanupStatusBar(void) {
+    if (hFontRCI) {
+        DeleteObject(hFontRCI);
+        hFontRCI = NULL;
+    }
     if (hdcMem) {
         if (hbmMem) {
             SelectObject(hdcMem, hbmOld);
