@@ -1403,22 +1403,22 @@ typedef struct {
 } ToolButtonLayout;
 
 static const ToolButtonLayout toolLayout[16] = {
-    {9, 58, 34, 50, 34, 50},    /* 0 - Residential Zone (tall) */
-    {47, 58, 34, 50, 34, 50},   /* 1 - Commercial Zone (tall) */
-    {85, 58, 34, 50, 34, 50},   /* 2 - Industrial Zone (tall) */
-    {9, 112, 34, 34, 34, 34},   /* 3 - Fire Station (square) */
-    {47, 112, 34, 34, 34, 34},  /* 4 - Query Tool (square) */
-    {85, 112, 34, 34, 34, 34},  /* 5 - Police Station (square) */
-    {9, 150, 34, 34, 34, 34},   /* 6 - Power Lines (square) */
-    {47, 150, 34, 34, 34, 34},  /* 7 - Bulldozer (square) */
-    {6, 188, 56, 24, 56, 24},   /* 8 - Railway (wide) */
-    {66, 188, 56, 24, 56, 24},  /* 9 - Roads (wide) */
-    {15, 220, 42, 42, 42, 42},  /* 10 - Stadium (shifted up, centered) */
-    {85, 150, 34, 34, 34, 34},  /* 11 - Park (moved to row 3) */
-    {75, 220, 42, 42, 42, 42},  /* 12 - Seaport (shifted up, centered) */
-    {15, 270, 42, 42, 42, 42},  /* 13 - Coal Power Plant (shifted up, centered) */
-    {75, 270, 42, 42, 42, 42},  /* 14 - Nuclear Power Plant (shifted up, centered) */
-    {37, 320, 58, 58, 58, 58}   /* 15 - Airport (shifted up, recentered for 58x58) */
+    {10, 4, 34, 50, 34, 50},    /* 0 - Residential Zone (tall, col 1) */
+    {10, 56, 34, 50, 34, 50},   /* 1 - Commercial Zone (tall, col 1) */
+    {10, 108, 34, 50, 34, 50},  /* 2 - Industrial Zone (tall, col 1) */
+    {52, 84, 34, 34, 34, 34},   /* 3 - Fire Station (square, col 2) */
+    {52, 162, 34, 34, 34, 34},  /* 4 - Query Tool (square, col 2) */
+    {52, 124, 34, 34, 34, 34},  /* 5 - Police Station (square, col 2) */
+    {52, 44, 34, 34, 34, 34},   /* 6 - Power Lines (square, col 2) */
+    {52, 4, 34, 34, 34, 34},    /* 7 - Bulldozer (square, col 2) */
+    {20, 228, 56, 24, 56, 24},  /* 8 - Railway (wide, centered) */
+    {20, 200, 56, 24, 56, 24},  /* 9 - Roads (wide, centered) */
+    {4, 302, 42, 42, 42, 42},   /* 10 - Stadium (square, col 1) */
+    {10, 162, 34, 34, 34, 34},  /* 11 - Park (square, col 1) */
+    {50, 302, 42, 42, 42, 42},  /* 12 - Seaport (square, col 2) */
+    {4, 256, 42, 42, 42, 42},   /* 13 - Coal Power Plant (square, col 1) */
+    {50, 256, 42, 42, 42, 42},  /* 14 - Nuclear Power Plant (square, col 2) */
+    {19, 348, 58, 58, 58, 58}   /* 15 - Airport (large, centered) */
 };
 
 /* File names for tool bitmaps - removed chalk/eraser tools */

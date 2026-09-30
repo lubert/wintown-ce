@@ -237,7 +237,7 @@ static int cxClient = 0;
 static int cyClient = 0;
 static int xOffset = 0;
 static int yOffset = 0;
-int toolbarWidth = 132; /* Original Micropolis toolbar width */
+int toolbarWidth = 96; /* 6 tiles (16px * 6) - compact 2-column toolbar */
 #ifdef _WIN32_WCE
 int cbHeight = 26; /* Height of CommandBar on Windows CE */
 #else
